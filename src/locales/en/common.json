@@ -1,0 +1,106 @@
+{
+  "app": {
+    "name": "AgentOS Workbench",
+    "fallbacks": {
+      "untitledPersona": "Untitled persona",
+      "agencyCollective": "Agency collective"
+    },
+    "logs": {
+      "userMessage": "User -> {{displayName}}: {{content}}",
+      "streamError": "Stream error: {{message}}"
+    }
+  },
+  "languageSwitcher": {
+    "label": "Select language",
+    "languages": {
+      "en": "English",
+      "es": "Español"
+    }
+  },
+  "common": {
+    "status": {
+      "idle": "Idle",
+      "streaming": "Streaming",
+      "error": "Error"
+    }
+  },
+  "sidebar": {
+    "sessionsLabel": "Sessions",
+    "title": "AgentOS Workbench",
+    "actions": {
+      "newSession": "New session"
+    },
+    "emptyState": "Create a session to start streaming AgentOS events. Connect it to your backend or replay captured transcripts.",
+    "badges": {
+      "agency": "Agency",
+      "persona": "Persona"
+    },
+    "session": {
+      "streamLabel": "Stream",
+      "noActivity": "No activity yet",
+      "completedTurn": "Completed turn"
+    }
+  },
+  "requestComposer": {
+    "header": {
+      "title": "Request composer",
+      "subtitle": "Prototype turns and replay transcripts"
+    },
+    "form": {
+      "targetLegend": "Target",
+      "persona": {
+        "label": "Persona",
+        "placeholder": "Select a persona"
+      },
+      "agency": {
+        "label": "Agency",
+        "placeholder": "Select an agency"
+      },
+      "workflow": {
+        "label": "Workflow definition",
+        "loading": "Loading workflows…",
+        "none": "No workflow",
+        "hint": "Selecting a workflow streams WORKFLOW_UPDATE events alongside agency coordination.",
+        "agencyNotice": "Streaming will include AGENCY_UPDATE chunks for seat coordination."
+      },
+      "userInput": {
+        "label": "User input"
+      },
+      "modeLegend": "Mode"
+    },
+    "guidance": {
+      "createAgency": "Create an agency to enable collectives"
+    },
+    "defaults": {
+      "samplePrompt": "What's the next task for our audio pipeline?"
+    },
+    "targetOptions": {
+      "persona": "Persona",
+      "agency": "Agency"
+    },
+    "modes": {
+      "chat": "Chat",
+      "voice": "Voice"
+    },
+    "validation": {
+      "inputRequired": "Provide some user input",
+      "selectPersona": "Select a persona",
+      "selectAgency": "Select an agency"
+    },
+    "actions": {
+      "submit": "Send to AgentOS",
+      "streaming": "Streaming…",
+      "attachTranscript": "Attach transcript snapshot",
+      "replayPlaceholder": "? Replay transcript"
+    },
+    "footer": {
+      "localNotice": "Workbench requests stay local. Wire this UI to your dev API to drive real @agentos/core sessions."
+    }
+  },
+  "artifactViewer": {
+    "actions": {
+      "copy": "Copy",
+      "download": "Download"
+    }
+  }
+}

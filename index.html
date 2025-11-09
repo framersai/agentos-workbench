@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Developer cockpit for AgentOS sessions: inspect personas, debug tool calls, and replay streaming transcripts." />
+    <meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    
+    <!-- Favicons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="128x128" href="/icon-128.png" />
+    <link rel="icon" type="image/png" sizes="256x256" href="/icon-256.png" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png" />
+    <link rel="apple-touch-icon" sizes="256x256" href="/icon-256.png" />
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://agentos.sh" />
+    <meta property="og:title" content="AgentOS Client - Developer Workbench" />
+    <meta property="og:description" content="Developer cockpit for AgentOS sessions: inspect personas, debug tool calls, and replay streaming transcripts." />
+    <meta property="og:image" content="/og-image.png" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@frame_dev" />
+    <meta name="twitter:creator" content="@frame_dev" />
+    <meta name="twitter:title" content="AgentOS Client - Developer Workbench" />
+    <meta name="twitter:description" content="Developer cockpit for AgentOS sessions: inspect personas, debug tool calls, and replay streaming transcripts." />
+    <meta name="twitter:image" content="/og-image.png" />
+    
+    <title>AgentOS Client - Developer Workbench</title>
+    
+    <!-- Preload critical fonts for better performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  </head>
+  <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Skip to main content for screen readers -->
+    <noscript>
+      <div style="padding: 2rem; text-align: center; background: #fef2f2; color: #991b1b; border: 2px solid #f87171;">
+        <strong>JavaScript Required</strong>
+        <p>This application requires JavaScript to be enabled in your browser.</p>
+      </div>
+    </noscript>
+  </body>
+</html>

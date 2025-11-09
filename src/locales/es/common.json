@@ -1,0 +1,106 @@
+{
+  "app": {
+    "name": "Banco de trabajo AgentOS",
+    "fallbacks": {
+      "untitledPersona": "Persona sin título",
+      "agencyCollective": "Colectivo de agencias"
+    },
+    "logs": {
+      "userMessage": "Usuario -> {{displayName}}: {{content}}",
+      "streamError": "Error de transmisión: {{message}}"
+    }
+  },
+  "languageSwitcher": {
+    "label": "Seleccionar idioma",
+    "languages": {
+      "en": "Inglés",
+      "es": "Español"
+    }
+  },
+  "common": {
+    "status": {
+      "idle": "Inactivo",
+      "streaming": "Transmitiendo",
+      "error": "Error"
+    }
+  },
+  "sidebar": {
+    "sessionsLabel": "Sesiones",
+    "title": "Banco de trabajo AgentOS",
+    "actions": {
+      "newSession": "Nueva sesión"
+    },
+    "emptyState": "Crea una sesión para empezar a recibir eventos de AgentOS. Conéctala a tu backend o reproduce transcripciones capturadas.",
+    "badges": {
+      "agency": "Agencia",
+      "persona": "Persona"
+    },
+    "session": {
+      "streamLabel": "Stream",
+      "noActivity": "Sin actividad todavía",
+      "completedTurn": "Turno completado"
+    }
+  },
+  "requestComposer": {
+    "header": {
+      "title": "Compositor de solicitudes",
+      "subtitle": "Prototipa turnos y reproduce transcripciones"
+    },
+    "form": {
+      "targetLegend": "Destino",
+      "persona": {
+        "label": "Persona",
+        "placeholder": "Selecciona una persona"
+      },
+      "agency": {
+        "label": "Agencia",
+        "placeholder": "Selecciona una agencia"
+      },
+      "workflow": {
+        "label": "Definición de workflow",
+        "loading": "Cargando workflows…",
+        "none": "Sin workflow",
+        "hint": "Seleccionar un workflow transmite eventos WORKFLOW_UPDATE junto con la coordinación de la agencia.",
+        "agencyNotice": "La transmisión incluirá bloques AGENCY_UPDATE para la coordinación de asientos."
+      },
+      "userInput": {
+        "label": "Entrada del usuario"
+      },
+      "modeLegend": "Modo"
+    },
+    "guidance": {
+      "createAgency": "Crea una agencia para habilitar colectivos"
+    },
+    "defaults": {
+      "samplePrompt": "¿Cuál es la siguiente tarea para nuestra cadena de audio?"
+    },
+    "targetOptions": {
+      "persona": "Persona",
+      "agency": "Agencia"
+    },
+    "modes": {
+      "chat": "Chat",
+      "voice": "Voz"
+    },
+    "validation": {
+      "inputRequired": "Ingresa alguna entrada del usuario",
+      "selectPersona": "Selecciona una persona",
+      "selectAgency": "Selecciona una agencia"
+    },
+    "actions": {
+      "submit": "Enviar a AgentOS",
+      "streaming": "Transmitiendo…",
+      "attachTranscript": "Adjuntar instantánea de transcripción",
+      "replayPlaceholder": "? Reproducir transcripción"
+    },
+    "footer": {
+      "localNotice": "Las solicitudes del banco de trabajo permanecen locales. Conecta esta interfaz a tu API de desarrollo para ejecutar sesiones reales de @agentos/core."
+    }
+  },
+  "artifactViewer": {
+    "actions": {
+      "copy": "Copiar",
+      "download": "Descargar"
+    }
+  }
+}

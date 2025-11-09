@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+
+  /* Light mode colors */
+  --color-background-primary: hsl(210, 20%, 98%);
+  --color-background-secondary: hsl(210, 17%, 95%);
+  --color-text-primary: hsl(220, 13%, 13%);
+  --color-text-secondary: hsl(220, 9%, 46%);
+  --color-text-muted: hsl(220, 9%, 65%);
+  --color-accent-primary: hsl(221, 83%, 53%);
+  --color-border-primary: hsl(220, 13%, 91%);
+}
+
+.dark {
+  color-scheme: dark;
+
+  /* Dark mode colors */
+  --color-background-primary: hsl(222, 47%, 11%);
+  --color-background-secondary: hsl(217, 33%, 17%);
+  --color-text-primary: hsl(210, 40%, 98%);
+  --color-text-secondary: hsl(215, 20%, 65%);
+  --color-text-muted: hsl(217, 10%, 50%);
+  --color-accent-primary: hsl(217, 91%, 60%);
+  --color-border-primary: hsl(217, 33%, 20%);
+}
+
+body {
+  background-color: var(--color-background-primary);
+  color: var(--color-text-primary);
+  transition: background-color 200ms ease-out, color 200ms ease-out;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text-primary);
+}
+
+p {
+  color: var(--color-text-secondary);
+}
+
+a {
+  color: var(--color-text-secondary);
+  transition: color 200ms ease-out;
+}
+
+a:hover {
+  color: var(--color-accent-primary);
+}
+
+* {
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--color-text-muted);
+  opacity: 0.4;
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-accent-primary);
+}
+
+/* Utility classes for theme-aware components */
+@layer utilities {
+  .theme-bg-primary {
+    background-color: var(--color-background-primary);
+  }
+
+  .theme-bg-secondary {
+    background-color: var(--color-background-secondary);
+  }
+
+  .theme-text-primary {
+    color: var(--color-text-primary);
+  }
+
+  .theme-text-secondary {
+    color: var(--color-text-secondary);
+  }
+
+  .theme-text-muted {
+    color: var(--color-text-muted);
+  }
+
+  .theme-accent {
+    color: var(--color-accent-primary);
+  }
+
+  .theme-border {
+    border-color: var(--color-border-primary);
+  }
+}
