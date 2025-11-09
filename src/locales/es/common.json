@@ -94,7 +94,8 @@
       "replayPlaceholder": "? Reproducir transcripción"
     },
     "footer": {
-      "localNotice": "Las solicitudes del banco de trabajo permanecen locales. Conecta esta interfaz a tu API de desarrollo para ejecutar sesiones reales de @agentos/core."
+      "localNotice": "Conexión al backend requerida",
+      "localNoticeDetails": "Este banco de trabajo envía solicitudes a tu API backend en /api/agentos/stream. Asegúrate de que tu backend esté ejecutándose con AGENTOS_ENABLED=true. El estado de la UI (sesiones, personas) se almacena localmente en tu navegador (IndexedDB) para acceso rápido."
     }
   },
   "artifactViewer": {

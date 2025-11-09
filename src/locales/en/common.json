@@ -94,7 +94,8 @@
       "replayPlaceholder": "? Replay transcript"
     },
     "footer": {
-      "localNotice": "Workbench requests stay local. Wire this UI to your dev API to drive real @agentos/core sessions."
+      "localNotice": "Backend API connection required",
+      "localNoticeDetails": "Requests are sent to your backend at /api/agentos/stream. Ensure backend is running with AGENTOS_ENABLED=true.\n\n⚠️ AGENCY MODE: Currently sends to one GMI per request. For true multi-GMI parallel coordination, workflows must be started via /workflows/start endpoint (not yet wired to this UI).\n\nUI state (sessions, personas, agencies) is stored locally in IndexedDB for offline viewing."
     }
   },
   "artifactViewer": {

@@ -2,11 +2,17 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 export type Theme = 'light' | 'dark' | 'system';
+export type Appearance = 'default' | 'compact' | 'contrast';
+export type Palette = 'default' | 'sakura' | 'sunset' | 'twilight' | 'aurora' | 'warm' | 'terminus-amber' | 'terminus-green' | 'terminus-white';
 
 interface ThemeState {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   actualTheme: 'light' | 'dark';
+  appearance: Appearance;
+  setAppearance: (appearance: Appearance) => void;
+  palette: Palette;
+  setPalette: (palette: Palette) => void;
 }
 
 const getSystemTheme = (): 'light' | 'dark' => {
@@ -26,16 +32,38 @@ const applyTheme = (theme: 'light' | 'dark') => {
   }
 };
 
+const applyAppearance = (appearance: Appearance) => {
+  const root = document.documentElement;
+  root.classList.remove('appearance-default', 'appearance-compact', 'appearance-contrast');
+  root.classList.add(`appearance-${appearance}`);
+};
+
+const applyPalette = (palette: Palette) => {
+  const root = document.documentElement;
+  root.classList.remove('palette-default', 'palette-sakura', 'palette-sunset');
+  root.classList.add(`palette-${palette}`);
+};
+
 export const useThemeStore = create<ThemeState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       theme: 'system',
       actualTheme: getSystemTheme(),
+      appearance: 'default',
+      palette: 'default',
       
       setTheme: (theme: Theme) => {
         const actualTheme = theme === 'system' ? getSystemTheme() : theme;
         applyTheme(actualTheme);
         set({ theme, actualTheme });
+      },
+      setAppearance: (appearance: Appearance) => {
+        applyAppearance(appearance);
+        set({ appearance });
+      },
+      setPalette: (palette: Palette) => {
+        applyPalette(palette);
+        set({ palette });
       },
     }),
     {
@@ -45,6 +73,8 @@ export const useThemeStore = create<ThemeState>()(
           const actualTheme = state.theme === 'system' ? getSystemTheme() : state.theme;
           applyTheme(actualTheme);
           state.actualTheme = actualTheme;
+          applyAppearance(state.appearance ?? 'default');
+          applyPalette(state.palette ?? 'default');
         }
       },
     }

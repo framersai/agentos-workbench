@@ -73,6 +73,9 @@ export function usePersonas(options: UsePersonasOptions = {}) {
     queryKey: ["agentos", "personas", userId ?? null, normalizedFilters ?? {}],
     enabled,
     staleTime: staleTimeMs,
+    refetchOnWindowFocus: false, // Prevent refetch on window focus
+    refetchOnMount: false, // Don't refetch if data exists
+    retry: 1, // Only retry once on failure
     queryFn: ({ signal }) =>
       listPersonas({
         userId,

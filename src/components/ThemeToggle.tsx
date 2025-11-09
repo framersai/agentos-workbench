@@ -1,44 +1,25 @@
-import React from 'react';
-import { Sun, Moon, Monitor } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 import { useThemeStore, Theme } from '../state/themeStore';
 
 export function ThemeToggle() {
-  const { theme, setTheme } = useThemeStore();
+  const { actualTheme, setTheme } = useThemeStore();
 
-  const themes: Array<{ value: Theme; icon: React.ReactNode; label: string }> = [
-    { value: 'light', icon: <Sun className="w-4 h-4" />, label: 'Light' },
-    { value: 'dark', icon: <Moon className="w-4 h-4" />, label: 'Dark' },
-    { value: 'system', icon: <Monitor className="w-4 h-4" />, label: 'System' },
-  ];
+  const isDark = actualTheme === 'dark';
+  const nextTheme: Theme = isDark ? 'light' : 'dark';
+
+  const handleToggle = () => {
+    // If user previously chose system, flip based on actual and persist explicit choice
+    setTheme(nextTheme);
+  };
 
   return (
-    <div 
-      className="inline-flex items-center rounded-lg border border-slate-300 bg-white p-1 shadow-sm dark:border-gray-600 dark:bg-gray-800"
-      role="radiogroup"
-      aria-label="Theme preference"
+    <button
+      onClick={handleToggle}
+      className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/70 text-slate-800 shadow-sm backdrop-blur transition hover:bg-slate-200/70 focus:outline-none focus:ring-2 focus:ring-sky-500 focus:ring-offset-2 dark:border-white/10 dark:bg-slate-900/50 dark:text-slate-100 dark:hover:bg-white/10 dark:focus:ring-offset-slate-900"
+      title="Toggle theme"
+      aria-label="Toggle theme"
     >
-      {themes.map(({ value, icon, label }) => (
-        <button
-          key={value}
-          onClick={() => setTheme(value)}
-          role="radio"
-          aria-checked={theme === value}
-          className={`
-            inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium
-            transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800
-            ${
-              theme === value
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-700 hover:bg-slate-100 dark:text-gray-300 dark:hover:bg-gray-700'
-            }
-          `}
-          title={`Switch to ${label.toLowerCase()} theme`}
-          aria-label={`${label} theme`}
-        >
-          <span aria-hidden="true">{icon}</span>
-          <span className="hidden sm:inline">{label}</span>
-        </button>
-      ))}
-    </div>
+      {isDark ? <Sun className="h-4 w-4" aria-hidden="true" /> : <Moon className="h-4 w-4" aria-hidden="true" />}
+    </button>
   );
 }

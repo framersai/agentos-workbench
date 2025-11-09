@@ -1,19 +1,32 @@
 ﻿import { useCallback, useMemo } from "react";
 import { Clipboard, Download, Link2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import ReactMarkdown from "react-markdown";
 
 interface ArtifactViewerProps {
   result: unknown;
   label?: string;
+  format?: 'json' | 'csv' | 'markdown' | 'text';
 }
 
 const isHttpUrl = (value: string): boolean => /^https?:\/\//i.test(value);
 
 const isLikelyBase64 = (value: string): boolean => /^[A-Za-z0-9+/=]+$/.test(value) && value.length % 4 === 0;
 
-export function ArtifactViewer({ result, label }: ArtifactViewerProps) {
+export function ArtifactViewer({ result, label, format }: ArtifactViewerProps) {
   const { t } = useTranslation();
   const ensureString = (value: unknown): string | null => (typeof value === "string" ? value : null);
+
+  // Detect format from content if not explicitly provided
+  const detectedFormat = useMemo(() => {
+    if (format) return format;
+    const str = ensureString(result);
+    if (!str) return 'json';
+    if (str.trim().startsWith('{') || str.trim().startsWith('[')) return 'json';
+    if (str.includes(',') && str.includes('\n') && str.split('\n').length > 1) return 'csv';
+    if (str.includes('#') || str.includes('**') || str.includes('```')) return 'markdown';
+    return 'text';
+  }, [result, format]);
 
   const downloadInfo = useMemo(() => {
     if (typeof result !== "object" || result === null) {
@@ -53,6 +66,72 @@ export function ArtifactViewer({ result, label }: ArtifactViewerProps) {
   }, [downloadInfo]);
 
   const renderValue = (value: unknown): JSX.Element => {
+    const str = ensureString(value);
+    
+    // Handle CSV format
+    if (detectedFormat === 'csv' && str) {
+      const lines = str.trim().split('\n').filter(l => l.trim());
+      const headers = lines[0]?.split(',').map(h => h.trim()) || [];
+      const rows = lines.slice(1).map(line => line.split(',').map(c => c.trim()));
+      
+      return (
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse border border-slate-600 text-xs">
+            <thead>
+              <tr className="bg-slate-800">
+                {headers.map((h, i) => (
+                  <th key={i} className="border border-slate-600 px-3 py-2 text-left font-semibold text-slate-200">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row, i) => (
+                <tr key={i} className="hover:bg-slate-800/50">
+                  {row.map((cell, j) => (
+                    <td key={j} className="border border-slate-600 px-3 py-2 text-slate-300">
+                      {cell}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    }
+    
+    // Handle JSON format
+    if (detectedFormat === 'json') {
+      let jsonValue: unknown = value;
+      if (str) {
+        try {
+          jsonValue = JSON.parse(str);
+        } catch {
+          // Fall through to string rendering
+        }
+      }
+      
+      if (typeof jsonValue === 'object' && jsonValue !== null) {
+        return (
+          <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-950/60 p-3 text-xs text-slate-200">
+            {JSON.stringify(jsonValue, null, 2)}
+          </pre>
+        );
+      }
+    }
+    
+    // Handle Markdown format
+    if (detectedFormat === 'markdown' && str) {
+      return (
+        <div className="prose prose-invert max-w-none rounded-lg bg-slate-950/60 p-4 text-sm text-slate-200 prose-headings:text-slate-100 prose-p:text-slate-200 prose-strong:text-slate-100 prose-code:text-emerald-300 prose-pre:bg-slate-900">
+          <ReactMarkdown>{str}</ReactMarkdown>
+        </div>
+      );
+    }
+    
+    // Handle plain text
     if (typeof value === "string") {
       if (isHttpUrl(value)) {
         return (

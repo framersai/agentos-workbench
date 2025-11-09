@@ -19,7 +19,7 @@ const config: Config = {
         panel: "0 16px 40px -24px rgba(15, 23, 42, 0.45)"
       },
       gridTemplateColumns: {
-        panel: "320px minmax(0, 1fr)"
+        panel: "360px minmax(0, 1fr)"
       }
     }
   },
