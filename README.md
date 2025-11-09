@@ -45,14 +45,3 @@ pnpm typecheck
 4. Use the request composer to fire a turn—live `AGENCY_UPDATE` / `WORKFLOW_UPDATE` chunks will populate the timeline automatically.
 
 The client mirrors the streaming contracts from `@agentos/core`, so backend responses flow straight into the UI with no reshaping.
-
-## Links
-- Website: https://frame.dev
-- AgentOS: https://agentos.sh
-- Marketplace: https://vca.chat
-- GitHub: https://github.com/framersai/agentos-client
-- npm: https://www.npmjs.com/org/framers
-## Contributing & Security
-- Contributing: ./\.github/CONTRIBUTING.md
-- Code of Conduct: ./\.github/CODE_OF_CONDUCT.md
-- Security Policy: ./\.github/SECURITY.md
