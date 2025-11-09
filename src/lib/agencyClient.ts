@@ -3,7 +3,7 @@
  * @description Client-side utilities for multi-GMI agency workflow streaming using AgentOS directly.
  * 
  * **Architecture:**
- * - Uses `@agentos/core` package directly (no backend HTTP required)
+ * - Uses `@framers/agentos` package directly (no backend HTTP required)
  * - Creates AgentOS instance with IndexedDB storage adapter
  * - Executes multi-GMI workflows via AgentOS.processRequest with workflowRequest
  * - Streams chunks directly from AgentOS async generator
@@ -29,7 +29,7 @@
  * ```
  */
 
-import { AgentOS } from '@agentos/core';
+import { AgentOS } from '@framers/agentos';
 import type { AgentOSResponse } from '@/types/agentos';
 
 /** Configuration for a single agent role */
