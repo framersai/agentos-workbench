@@ -30,6 +30,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "vite-plugin-node-polyfills": "^0.22.0",
     "@tailwindcss/forms": "^0.5.9",
     "@tailwindcss/typography": "^0.5.12",
     "@types/react": "^18.3.6",
