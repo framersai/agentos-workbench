@@ -13,6 +13,7 @@
     "e2e:report": "playwright show-report"
   },
   "dependencies": {
+    "@framers/theme-tokens": "workspace:*",
     "@framers/agentos": "workspace:*",
     "@framers/sql-storage-adapter": "latest",
     "@hookform/resolvers": "^3.6.0",
