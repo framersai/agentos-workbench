@@ -158,42 +158,42 @@ export function AgencyManager() {
   };
 
   const workflowRoleHints = selectedWorkflow?.roles ?? [];
-
+  
   return (
-    <>
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900/60" data-tour="agency-manager">
-      <header className="mb-4 flex items-center justify-between">
+    <div className="flex h-full flex-col gap-3 overflow-hidden">
+      <section className="flex-1 flex flex-col rounded-xl border theme-border theme-bg-secondary-soft p-3 overflow-y-auto transition-theme" data-tour="agency-manager">
+      <header className="mb-3 flex items-center justify-between">
         <div>
-          <p className="text-[10px] uppercase tracking-[0.4em] text-slate-500 dark:text-slate-500">Agency manager</p>
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Coordinate multi-seat collectives</h3>
+          <p className="text-[10px] uppercase tracking-[0.4em] theme-text-muted">Agency manager</p>
+          <h3 className="text-base font-semibold theme-text-primary">Coordinate collectives</h3>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-200">
-            {agencies.length} agencies
+        <div className="flex items-center gap-1.5">
+          <div className="rounded-full border theme-border px-2 py-0.5 text-[10px] theme-text-secondary">
+            {agencies.length}
           </div>
           <button
             type="button"
             onClick={() => setShowHistory(!showHistory)}
-            className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-slate-900"
+            className="inline-flex items-center gap-1 rounded-full border theme-border px-2 py-0.5 text-[10px] font-semibold theme-text-secondary transition hover:bg-slate-50 dark:hover:bg-slate-900"
           >
-            <History className="h-3.5 w-3.5 text-purple-500" />
+            <History className="h-3 w-3 text-purple-500" />
             History
           </button>
           <button
             type="button"
             onClick={() => setShowWizard(true)}
-            className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-3 py-1 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-200 dark:hover:bg-slate-900"
+            className="inline-flex items-center gap-1 rounded-full border theme-border px-2 py-0.5 text-[10px] font-semibold theme-text-secondary transition hover:bg-slate-50 dark:hover:bg-slate-900"
           >
-            <Sparkles className="h-3.5 w-3.5 text-sky-500" />
+            <Sparkles className="h-3 w-3 text-sky-500" />
             Wizard
           </button>
         </div>
       </header>
 
-      <div className="space-y-4">
-        <div className="space-y-3">
+      <div className="space-y-3">
+        <div className="space-y-2">
           {agencies.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-600 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-400">
+            <p className="rounded-xl border border-dashed border-slate-300 bg-white p-3 text-xs text-slate-600 dark:border-white/10 dark:bg-slate-950/40 dark:text-slate-400">
               Create an agency to assign personas into workflow roles and watch seats update in real time.
             </p>
           ) : (
@@ -219,31 +219,30 @@ export function AgencyManager() {
                       setActiveAgency(agency.id);
                     }
                   }}
-                  className={`w-full rounded-2xl border px-4 py-4 text-left transition focus:outline-none focus:ring-2 focus:ring-sky-500 ${
-                    activeAgencyId === agency.id ? "border-sky-500 bg-sky-50" : "border-slate-200 bg-white hover:bg-slate-50 dark:border-white/10 dark:bg-slate-950/50 dark:hover:border-white/20"
+                  className={`w-full rounded-xl border px-3 py-2 text-left transition focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+                    activeAgencyId === agency.id ? "border-sky-500 bg-sky-50 dark:bg-sky-900/20" : "theme-border theme-bg-secondary hover:opacity-95"
                   }`}
                 >
-                  <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
-                    <span className="inline-flex items-center gap-2 font-semibold uppercase tracking-[0.3em] text-sky-700 dark:text-sky-300">
-                      <Users className="h-3 w-3" /> {agency.name}
+                  <div className="flex items-center justify-between text-[10px] theme-text-secondary">
+                    <span className="inline-flex items-center gap-1.5 font-semibold uppercase tracking-[0.3em] text-sky-700 dark:text-sky-300">
+                      <Users className="h-2.5 w-2.5" /> {agency.name}
                     </span>
-                    {snapshot ? <span className="text-[10px] uppercase tracking-[0.3em] text-emerald-700 dark:text-emerald-300">Live</span> : null}
+                    {snapshot ? <span className="text-[9px] uppercase tracking-[0.3em] text-emerald-700 dark:text-emerald-300">Live</span> : null}
                   </div>
-                  {agency.goal && <p className="mt-2 text-sm text-slate-700 dark:text-slate-200">{agency.goal}</p>}
-                  <div className="mt-3 space-y-2">
+                  {agency.goal && <p className="mt-1 text-xs theme-text-primary line-clamp-2">{agency.goal}</p>}
+                  <div className="mt-2 space-y-1.5">
                     {seats.length === 0 ? (
-                      <p className="text-xs text-slate-500 dark:text-slate-500">No seats configured yet.</p>
+                      <p className="text-[10px] theme-text-muted">No seats configured.</p>
                     ) : (
                       seats.map((seat) => (
-                        <div key={seat.roleId} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-200">
-                          <span className="font-semibold uppercase tracking-[0.35em] text-slate-500 dark:text-slate-400">{seat.roleId}</span>
-                          <span className="text-slate-800 dark:text-slate-100">{seat.personaId}</span>
-                          <span className="text-[10px] text-slate-500 dark:text-slate-500">{seat.gmiInstanceId}</span>
+                        <div key={seat.roleId} className="flex items-center justify-between rounded-lg border theme-border theme-bg-primary px-2 py-1 text-[10px] theme-text-secondary">
+                          <span className="font-semibold uppercase tracking-[0.35em] theme-text-muted">{seat.roleId}</span>
+                          <span className="theme-text-primary truncate max-w-[100px]">{seat.personaId}</span>
                         </div>
                       ))
                     )}
                   </div>
-                  <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-[0.3em] text-slate-500 dark:text-slate-500">
+                  <div className="mt-2 flex items-center justify-between text-[9px] uppercase tracking-[0.3em] theme-text-muted">
                     <span>{agency.workflowId ?? "No workflow"}</span>
                     <button
                       type="button"
@@ -252,9 +251,9 @@ export function AgencyManager() {
                         const ok = window.confirm(`Remove agency "${agency.name}"?`);
                         if (ok) removeAgency(agency.id);
                       }}
-                      className="inline-flex items-center gap-1 text-rose-700 transition hover:text-rose-500 dark:text-rose-300 dark:hover:text-rose-200"
+                      className="inline-flex items-center gap-0.5 text-rose-700 transition hover:text-rose-500 dark:text-rose-300 dark:hover:text-rose-200"
                     >
-                      <Trash2 className="h-3 w-3" /> Remove
+                      <Trash2 className="h-2.5 w-2.5" /> Remove
                     </button>
                   </div>
                 </div>
@@ -263,63 +262,59 @@ export function AgencyManager() {
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-200">
+        <form onSubmit={handleSubmit} className="space-y-2 rounded-xl border theme-border theme-bg-secondary p-3 text-xs theme-text-secondary">
           <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-500 dark:text-slate-500">New agency</p>
-            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-500">
-              {workflowsError && <span className="text-rose-300">Workflow fetch failed.</span>}
+            <p className="text-[10px] uppercase tracking-[0.35em] theme-text-muted">New agency</p>
+            <div className="flex items-center gap-1 text-[10px] theme-text-muted">
+              {workflowsError && <span className="text-rose-300">Fetch failed.</span>}
               <button
                 type="button"
                 onClick={() => refetchWorkflows()}
-                className="inline-flex items-center gap-1 rounded-full border border-slate-200 px-2 py-1 text-[10px] uppercase tracking-[0.35em] text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-400 dark:hover:border-white/30"
+                className="inline-flex items-center gap-0.5 rounded-full border theme-border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.35em] transition hover:opacity-95"
               >
-                <RefreshCcw className="h-3 w-3" /> Refresh
+                <RefreshCcw className="h-2.5 w-2.5" /> Refresh
               </button>
             </div>
-            <Circle className="hidden h-3 w-3 text-slate-500 md:block" />
           </div>
-          <label className="space-y-1">
-            <span className="text-xs text-slate-500 dark:text-slate-400">Agency name</span>
+          <label className="space-y-0.5 block">
+            <span className="text-[10px] theme-text-muted">Agency name</span>
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none dark:border-white/10 dark:bg-slate-950/80 dark:text-slate-100"
+              className="w-full rounded-md border theme-border theme-bg-primary px-2 py-1.5 text-xs theme-text-primary focus:border-sky-500 focus:outline-none"
               placeholder="Mission Automation Crew"
             />
           </label>
-          <label className="space-y-1">
-            <span className="text-xs text-slate-500 dark:text-slate-400">Shared goal</span>
+          <label className="space-y-0.5 block">
+            <span className="text-[10px] theme-text-muted">Shared goal</span>
             <textarea
               value={goal}
               onChange={(event) => setGoal(event.target.value)}
               rows={2}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none dark:border-white/10 dark:bg-slate-950/80 dark:text-slate-100"
-              placeholder="Coordinate the release-readiness workflow and keep telemetry fresh."
+              className="w-full rounded-md border theme-border theme-bg-primary px-2 py-1.5 text-xs theme-text-primary focus:border-sky-500 focus:outline-none"
+              placeholder="Coordinate the release-readiness workflow..."
             />
           </label>
-          <label className="space-y-1">
-            <span className="text-xs text-slate-500 dark:text-slate-400">Workflow definition</span>
+          <label className="space-y-0.5 block">
+            <span className="text-[10px] theme-text-muted">Workflow definition</span>
             <select
               value={workflowId}
               onChange={(event) => setWorkflowId(event.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none dark:border-white/10 dark:bg-slate-950/80 dark:text-slate-100"
+              className="w-full rounded-md border theme-border theme-bg-primary px-2 py-1.5 text-xs theme-text-primary focus:border-sky-500 focus:outline-none"
             >
-              <option value="">{workflowsLoading ? "Loading workflows…" : "Unassigned"}</option>
+              <option value="">{workflowsLoading ? "Loading..." : "Unassigned"}</option>
               {workflowDefinitions.map((definition) => (
                 <option key={definition.id} value={definition.id}>
                   {definition.displayName}
                 </option>
               ))}
             </select>
-            {selectedWorkflow?.description && (
-              <p className="text-xs text-slate-500 dark:text-slate-500">{selectedWorkflow.description}</p>
-            )}
           </label>
 
           {workflowRoleHints.length > 0 && (
-            <div className="rounded-xl border border-white/10 bg-slate-950/60 p-3 text-xs text-slate-300">
-              <p className="mb-2 font-semibold uppercase tracking-[0.35em] text-slate-400">Workflow roles</p>
-              <ul className="space-y-1">
+            <div className="rounded-lg border theme-border theme-bg-primary p-2 text-[10px] theme-text-muted">
+              <p className="mb-1 font-semibold uppercase tracking-[0.35em]">Workflow roles</p>
+              <ul className="space-y-0.5">
                 {workflowRoleHints.map((role) => (
                   <li key={role.roleId} className="flex items-center justify-between">
                     <span>{role.displayName || role.roleId}</span>
@@ -330,20 +325,20 @@ export function AgencyManager() {
             </div>
           )}
 
-          <div className="space-y-2">
-            <p className="text-xs uppercase tracking-[0.35em] text-slate-500">Seat assignments</p>
+          <div className="space-y-1.5">
+            <p className="text-[10px] uppercase tracking-[0.35em] theme-text-muted">Seat assignments</p>
             {participants.map((participant, index) => (
-              <div key={index} className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center dark:border-white/10 dark:bg-slate-950/70">
+              <div key={index} className="flex flex-col gap-1 rounded-lg border theme-border theme-bg-primary p-2 sm:flex-row sm:items-center">
                 <input
                   value={participant.roleId}
                   onChange={(event) => handleParticipantChange(index, "roleId", event.target.value)}
-                  className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none dark:border-white/10 dark:bg-slate-950/90 dark:text-slate-100"
+                  className="flex-1 rounded border theme-border theme-bg-secondary px-2 py-1 text-xs theme-text-primary focus:border-sky-500 focus:outline-none"
                   placeholder="planner"
                 />
                 <select
                   value={participant.personaId}
                   onChange={(event) => handleParticipantChange(index, "personaId", event.target.value)}
-                  className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-sky-500 focus:outline-none dark:border-white/10 dark:bg-slate-950/90 dark:text-slate-100"
+                  className="flex-1 rounded border theme-border theme-bg-secondary px-2 py-1 text-xs theme-text-primary focus:border-sky-500 focus:outline-none"
                 >
                   <option value="">Unassigned</option>
                   {personas.map((persona) => (
@@ -355,26 +350,26 @@ export function AgencyManager() {
                 <button
                   type="button"
                   onClick={() => handleRemoveParticipant(index)}
-                  className="self-start rounded-full border border-slate-200 p-2 text-slate-600 transition hover:bg-slate-50 dark:border-white/10 dark:text-slate-400 dark:hover:text-rose-300"
+                  className="self-start rounded-full border theme-border p-1 text-slate-500 transition hover:bg-slate-50 dark:hover:text-rose-300"
                   title="Remove seat"
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className="h-2.5 w-2.5" />
                 </button>
               </div>
             ))}
             <button
               type="button"
               onClick={handleAddParticipant}
-              className="inline-flex items-center gap-2 rounded-full border border-dashed border-slate-300 px-3 py-2 text-xs font-semibold uppercase tracking-[0.35em] text-slate-600 transition hover:bg-slate-50 dark:border-white/20 dark:text-slate-400 dark:hover:border-white/40"
+              className="inline-flex items-center gap-1 rounded-full border border-dashed border-slate-300 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.35em] theme-text-muted transition hover:opacity-95"
             >
-              <Plus className="h-3 w-3" /> Add seat
+              <Plus className="h-2.5 w-2.5" /> Add seat
             </button>
           </div>
           <button
             type="submit"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-emerald-950 transition hover:-translate-y-0.5"
+            className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-full theme-bg-success px-3 py-1.5 text-xs font-semibold text-white transition hover:-translate-y-0.5"
           >
-            <Users className="h-4 w-4" /> Launch agency
+            <Users className="h-3.5 w-3.5" /> Launch agency
           </button>
         </form>
       </div>
@@ -382,13 +377,13 @@ export function AgencyManager() {
 
       {/* Agency History Panel */}
       {showHistory && (
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-white/10 dark:bg-slate-900/60">
+        <section className="rounded-xl border theme-border theme-bg-secondary-soft p-3">
           <AgencyHistoryView userId={currentUserId} />
         </section>
       )}
 
       <AgencyWizard open={showWizard} onClose={() => setShowWizard(false)} />
-    </>
+    </div>
   );
 }
 
