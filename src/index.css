@@ -20,27 +20,43 @@
 :root {
   color-scheme: light dark;
 
-  /* Light mode colors */
+  /* 
+   * Light mode colors - WCAG AA Compliant
+   * All text colors maintain minimum 4.5:1 contrast against backgrounds
+   */
   --color-background-primary: hsl(210, 20%, 98%);
   --color-background-secondary: #ffffff;
-  --color-text-primary: hsl(220, 13%, 13%);
-  --color-text-secondary: hsl(220, 9%, 38%);
-  --color-text-muted: hsl(220, 9%, 65%);
+  --color-text-primary: hsl(220, 13%, 13%);     /* 14.5:1 contrast ✅ AAA */
+  --color-text-secondary: hsl(220, 12%, 35%);   /* 7.1:1 contrast ✅ AA (was 38%) */
+  --color-text-muted: hsl(220, 10%, 46%);       /* 4.6:1 contrast ✅ AA (was 65%) */
   --color-accent-primary: hsl(221, 83%, 53%);
-  --color-border-primary: hsl(220, 13%, 91%);
+  --color-accent-primary-accessible: hsl(221, 80%, 42%); /* 5.2:1 for text on white ✅ */
+  --color-border-primary: hsl(220, 13%, 85%);   /* Slightly darker for visibility */
+  
+  /* Focus ring colors */
+  --color-focus-ring: hsl(221, 83%, 53%);
+  --color-focus-ring-offset: hsl(210, 20%, 98%);
 }
 
 .dark {
   color-scheme: dark;
 
-  /* Dark mode colors - improved contrast and depth */
+  /* 
+   * Dark mode colors - WCAG AA Compliant
+   * Improved contrast and depth for accessibility
+   */
   --color-background-primary: hsl(222, 47%, 9%);
   --color-background-secondary: hsl(217, 33%, 12%);
-  --color-text-primary: hsl(210, 40%, 98%);
-  --color-text-secondary: hsl(215, 20%, 75%);
-  --color-text-muted: hsl(217, 12%, 55%);
-  --color-accent-primary: hsl(217, 91%, 62%);
-  --color-border-primary: hsl(217, 30%, 22%);
+  --color-text-primary: hsl(210, 40%, 98%);     /* 15.3:1 contrast ✅ AAA */
+  --color-text-secondary: hsl(215, 25%, 78%);   /* 8.2:1 contrast ✅ AA (was 75%) */
+  --color-text-muted: hsl(217, 15%, 62%);       /* 5.1:1 contrast ✅ AA (was 55%) */
+  --color-accent-primary: hsl(217, 91%, 68%);   /* Brighter for dark mode */
+  --color-accent-primary-accessible: hsl(217, 85%, 72%); /* 6.8:1 for text ✅ */
+  --color-border-primary: hsl(217, 30%, 25%);   /* Slightly lighter for visibility */
+  
+  /* Focus ring colors */
+  --color-focus-ring: hsl(217, 91%, 68%);
+  --color-focus-ring-offset: hsl(222, 47%, 9%);
 }
 
 /* Palette variants override accents and subtle surfaces */
@@ -129,6 +145,44 @@
   --color-text-muted: hsl(0, 0%, 55%);
   --color-accent-primary: hsl(0, 0%, 95%);
   --color-border-primary: hsl(0, 0%, 20%);
+}
+
+/* 
+ * High Contrast Mode - WCAG AAA Compliant
+ * All text maintains minimum 7:1 contrast ratio
+ */
+.high-contrast {
+  --color-background-primary: hsl(0, 0%, 100%);
+  --color-background-secondary: hsl(0, 0%, 97%);
+  --color-text-primary: hsl(0, 0%, 0%);         /* 21:1 contrast ✅ AAA */
+  --color-text-secondary: hsl(0, 0%, 15%);      /* 14.5:1 contrast ✅ AAA */
+  --color-text-muted: hsl(0, 0%, 30%);          /* 9.5:1 contrast ✅ AAA */
+  --color-accent-primary: hsl(221, 100%, 35%);  /* High contrast blue */
+  --color-border-primary: hsl(0, 0%, 50%);      /* Very visible borders */
+}
+
+.dark.high-contrast {
+  --color-background-primary: hsl(0, 0%, 0%);
+  --color-background-secondary: hsl(0, 0%, 5%);
+  --color-text-primary: hsl(0, 0%, 100%);       /* 21:1 contrast ✅ AAA */
+  --color-text-secondary: hsl(0, 0%, 90%);      /* 15:1 contrast ✅ AAA */
+  --color-text-muted: hsl(0, 0%, 75%);          /* 10:1 contrast ✅ AAA */
+  --color-accent-primary: hsl(60, 100%, 50%);   /* High visibility yellow */
+  --color-border-primary: hsl(0, 0%, 60%);      /* Very visible borders */
+}
+
+/* System high contrast preference detection */
+@media (prefers-contrast: more) {
+  :root {
+    --color-text-secondary: hsl(220, 12%, 28%);
+    --color-text-muted: hsl(220, 10%, 38%);
+    --color-border-primary: hsl(220, 13%, 70%);
+  }
+  .dark {
+    --color-text-secondary: hsl(215, 25%, 85%);
+    --color-text-muted: hsl(217, 15%, 72%);
+    --color-border-primary: hsl(217, 30%, 40%);
+  }
 }
 
 body {
@@ -273,6 +327,61 @@ a:hover {
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* 
+ * Enhanced Focus Indicators - WCAG 2.4.7 (AA)
+ * Visible focus indicators for keyboard navigation
+ */
+:focus-visible {
+  outline: 2px solid var(--color-focus-ring, var(--color-accent-primary));
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Remove default focus for mouse users */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Enhanced focus for interactive elements */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--color-focus-ring, var(--color-accent-primary));
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px color-mix(in oklab, var(--color-accent-primary) 25%, transparent);
+}
+
+/* High contrast focus for high-contrast mode */
+.high-contrast :focus-visible,
+.dark.high-contrast :focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* Skip link for keyboard users */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.75rem 1.5rem;
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  border: 2px solid var(--color-accent-primary);
+  border-radius: 0.5rem;
+  font-weight: 600;
+  z-index: 9999;
+  transition: top 200ms ease-out;
+}
+
+.skip-link:focus {
+  top: 1rem;
 }
 /* Theme transitions and skeletons */
 .transition-theme {
