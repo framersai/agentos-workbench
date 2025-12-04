@@ -15,7 +15,7 @@
   "dependencies": {
     "@framers/theme-tokens": "workspace:*",
     "@framers/agentos": "workspace:*",
-    "@framers/sql-storage-adapter": "^0.4.0",
+    "@framers/sql-storage-adapter": "workspace:*",
     "@hookform/resolvers": "^3.6.0",
     "@tanstack/react-query": "^5.51.0",
     "clsx": "^2.1.1",
