@@ -424,3 +424,110 @@ textarea:focus-visible,
   border-color: color-mix(in oklab, var(--color-text-secondary) 35%, transparent) !important;
 }
 .appearance-contrast .theme-text-secondary { color: color-mix(in oklab, var(--color-text-secondary) 120%, black) !important; }
+
+/* 
+ * Mobile Optimization Utilities
+ * Touch-friendly targets (WCAG 2.5.5 - 44x44px minimum)
+ */
+@layer utilities {
+  /* Touch-friendly target sizes */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  .touch-target-lg {
+    min-height: 48px;
+    min-width: 48px;
+  }
+
+  /* Safe area padding for notched devices */
+  .safe-area-inset {
+    padding-top: env(safe-area-inset-top, 0);
+    padding-right: env(safe-area-inset-right, 0);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    padding-left: env(safe-area-inset-left, 0);
+  }
+  
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  /* Hide on mobile / show on desktop */
+  .mobile-hidden {
+    @apply hidden sm:block;
+  }
+  
+  .desktop-hidden {
+    @apply block sm:hidden;
+  }
+
+  /* Mobile-optimized scrolling */
+  .scroll-touch {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Prevent text selection on touch (for buttons) */
+  .no-select {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* Tap highlight removal */
+  .no-tap-highlight {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Mobile-first responsive breakpoints */
+@media (max-width: 640px) {
+  /* Increase touch targets on mobile */
+  button, 
+  [role="button"],
+  a,
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+  }
+  
+  /* Stack horizontal layouts on mobile */
+  .mobile-stack {
+    flex-direction: column !important;
+  }
+  
+  /* Full width on mobile */
+  .mobile-full {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Hide scrollbars on mobile (use swipe) */
+  .mobile-hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .mobile-hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Tablet breakpoint adjustments */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .tablet-cols-2 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* Landscape mode on mobile */
+@media (max-width: 896px) and (orientation: landscape) {
+  .landscape-compact {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+  
+  .landscape-hidden {
+    display: none !important;
+  }
+}
