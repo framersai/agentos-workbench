@@ -16,7 +16,6 @@ import {
   Trash2,
   RefreshCw,
   Search,
-  Plus,
   AlertCircle,
   CheckCircle,
   Info,
@@ -76,6 +75,17 @@ interface RagDocument {
 }
 
 /**
+ * RAG query result item
+ */
+interface RagQueryResult {
+  chunkId: string;
+  documentId: string;
+  content: string;
+  score: number;
+  metadata?: Record<string, unknown>;
+}
+
+/**
  * Props for RagMemoryDashboard
  */
 interface RagMemoryDashboardProps {
@@ -120,7 +130,7 @@ export const RagMemoryDashboard: React.FC<RagMemoryDashboardProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [queryText, setQueryText] = useState("");
-  const [queryResults, setQueryResults] = useState<any[] | null>(null);
+  const [queryResults, setQueryResults] = useState<RagQueryResult[] | null>(null);
   const [isQuerying, setIsQuerying] = useState(false);
 
   // Fetch health status
@@ -492,4 +502,5 @@ export const RagMemoryDashboard: React.FC<RagMemoryDashboardProps> = ({
 };
 
 export default RagMemoryDashboard;
+
 

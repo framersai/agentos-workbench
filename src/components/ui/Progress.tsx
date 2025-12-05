@@ -1,5 +1,3 @@
-import React from 'react';
-
 type ProgressProps = {
 	value: number; // 0..100
 	className?: string;

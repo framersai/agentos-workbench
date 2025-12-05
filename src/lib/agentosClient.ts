@@ -489,10 +489,31 @@ export interface GuardrailDescriptor {
 	repository?: string;
 }
 
+/** Agency execution record from the API */
+export interface AgencyExecutionRecord {
+  agencyId: string;
+  workflowId: string;
+  userId: string;
+  status: string;
+  createdAt: string;
+  updatedAt?: string;
+  metadata?: Record<string, unknown>;
+}
+
+/** Agency seat record from the API */
+export interface AgencySeatRecord {
+  seatId: string;
+  agencyId: string;
+  roleId: string;
+  gmiId?: string;
+  status: string;
+  metadata?: Record<string, unknown>;
+}
+
 /**
  * List agency executions for a user
  */
-export async function listAgencyExecutions(userId: string, limit?: number): Promise<any[]> {
+export async function listAgencyExecutions(userId: string, limit?: number): Promise<AgencyExecutionRecord[]> {
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3333';
   const params = new URLSearchParams({ userId });
   if (limit) {
@@ -509,7 +530,7 @@ export async function listAgencyExecutions(userId: string, limit?: number): Prom
 /**
  * Get a specific agency execution with all seats
  */
-export async function getAgencyExecution(agencyId: string): Promise<{ execution: any; seats: any[] } | null> {
+export async function getAgencyExecution(agencyId: string): Promise<{ execution: AgencyExecutionRecord; seats: AgencySeatRecord[] } | null> {
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3333';
   const response = await fetch(`${baseUrl}/api/agentos/agency/executions/${agencyId}`);
   if (!response.ok) {

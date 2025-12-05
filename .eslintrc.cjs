@@ -29,6 +29,13 @@ module.exports = {
       parserOptions: {
         project: null
       }
+    },
+    {
+      // Files excluded from tsconfig.json need separate handling
+      files: ["src/lib/localAgentRuntime.ts", "src/lib/localWorkflowLibrary.ts"],
+      parserOptions: {
+        project: null
+      }
     }
   ],
   rules: {

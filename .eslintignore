@@ -1,0 +1,11 @@
+# Build outputs
+dist/
+build/
+
+# Dependencies
+node_modules/
+
+# Development-only files (excluded from tsconfig)
+src/lib/localAgentRuntime.ts
+src/lib/localWorkflowLibrary.ts
+

@@ -12,7 +12,6 @@ import {
   Check,
   AlertCircle,
   Code,
-  Shield,
   Zap,
   RefreshCw,
   ChevronRight

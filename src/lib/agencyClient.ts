@@ -62,6 +62,7 @@ export interface AgencyStreamCallbacks {
  * NOTE: Client-side AgentOS initialization requires full config (gmiManagerConfig, orchestratorConfig, etc.).
  * This is currently disabled - use backend API instead via agentosClient.ts.
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function getAgentOS(): Promise<never> {
   throw new Error(
     'Client-side AgentOS initialization is not yet supported. ' +
