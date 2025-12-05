@@ -1,0 +1,457 @@
+/**
+ * @file mobile.css
+ * @description Mobile-first responsive utilities for agentos-workbench.
+ * Provides touch-friendly sizing, responsive breakpoints, and adaptive layouts.
+ *
+ * @version 1.0.0
+ */
+
+/* ============================================================================
+   CSS Custom Properties for Responsive Design
+   ============================================================================ */
+
+:root {
+  /* Touch target sizes (WCAG 2.1 Level AAA) */
+  --touch-target-min: 44px;
+  --touch-target-comfortable: 48px;
+  
+  /* Spacing that scales */
+  --space-xs: clamp(0.25rem, 1vw, 0.5rem);
+  --space-sm: clamp(0.5rem, 2vw, 0.75rem);
+  --space-md: clamp(0.75rem, 3vw, 1rem);
+  --space-lg: clamp(1rem, 4vw, 1.5rem);
+  --space-xl: clamp(1.5rem, 5vw, 2rem);
+  
+  /* Font sizes that scale */
+  --text-xs: clamp(0.65rem, 2vw, 0.75rem);
+  --text-sm: clamp(0.75rem, 2.5vw, 0.875rem);
+  --text-base: clamp(0.875rem, 3vw, 1rem);
+  --text-lg: clamp(1rem, 3.5vw, 1.125rem);
+  --text-xl: clamp(1.125rem, 4vw, 1.25rem);
+  --text-2xl: clamp(1.25rem, 5vw, 1.5rem);
+  --text-3xl: clamp(1.5rem, 6vw, 1.875rem);
+}
+
+/* ============================================================================
+   Base Mobile Utilities
+   ============================================================================ */
+
+/* Touch-friendly minimum sizes */
+.touch-target {
+  min-width: var(--touch-target-min);
+  min-height: var(--touch-target-min);
+}
+
+/* Prevent iOS zoom on input focus */
+@media (hover: none) and (pointer: coarse) {
+  input, textarea, select {
+    font-size: 16px;
+  }
+}
+
+/* Safe area padding for notched devices */
+.safe-area-inset {
+  padding-left: max(env(safe-area-inset-left), 1rem);
+  padding-right: max(env(safe-area-inset-right), 1rem);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+}
+
+/* ============================================================================
+   Responsive Hide/Show Classes
+   ============================================================================ */
+
+/* Hide on mobile (< 768px) */
+@media (max-width: 767px) {
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* Hide on tablet (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hide-tablet {
+    display: none !important;
+  }
+}
+
+/* Hide on desktop (>= 1024px) */
+@media (min-width: 1024px) {
+  .hide-desktop {
+    display: none !important;
+  }
+}
+
+/* Show only on mobile */
+.show-mobile-only {
+  display: none !important;
+}
+@media (max-width: 767px) {
+  .show-mobile-only {
+    display: block !important;
+  }
+}
+
+/* Show only on desktop */
+.show-desktop-only {
+  display: none !important;
+}
+@media (min-width: 1024px) {
+  .show-desktop-only {
+    display: block !important;
+  }
+}
+
+/* ============================================================================
+   Orientation-Specific Styles
+   ============================================================================ */
+
+/* Hide in landscape */
+@media (orientation: landscape) {
+  .hide-landscape {
+    display: none !important;
+  }
+}
+
+/* Hide in portrait */
+@media (orientation: portrait) {
+  .hide-portrait {
+    display: none !important;
+  }
+}
+
+/* Mobile landscape specific (phone in landscape) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .mobile-landscape-compact {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  
+  .mobile-landscape-hide {
+    display: none !important;
+  }
+}
+
+/* ============================================================================
+   Touch-Friendly Interactive States
+   ============================================================================ */
+
+/* Only apply hover effects on devices that support hover */
+@media (hover: hover) and (pointer: fine) {
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Touch feedback for touch devices */
+@media (hover: none) and (pointer: coarse) {
+  .touch-feedback:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+  
+  /* Larger tap targets */
+  button, a, [role="button"] {
+    min-height: var(--touch-target-min);
+  }
+}
+
+/* ============================================================================
+   Responsive Grid Utilities
+   ============================================================================ */
+
+/* Auto-fit grid */
+.grid-auto-fit {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: var(--space-md);
+}
+
+/* Stack on mobile, row on larger screens */
+.stack-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+@media (min-width: 768px) {
+  .stack-mobile {
+    flex-direction: row;
+  }
+}
+
+/* ============================================================================
+   Responsive Container
+   ============================================================================ */
+
+.container-responsive {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding-left: var(--space-md);
+  padding-right: var(--space-md);
+}
+
+@media (min-width: 768px) {
+  .container-responsive {
+    padding-left: var(--space-lg);
+    padding-right: var(--space-lg);
+  }
+}
+
+/* ============================================================================
+   Mobile Bottom Navigation
+   ============================================================================ */
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobile-bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-around;
+    background: var(--color-surface-elevated, #1a1a1a);
+    border-top: 1px solid var(--color-divider, #333);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .mobile-bottom-nav > * {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--touch-target-comfortable);
+    padding: 0.5rem;
+    color: var(--color-text-muted, #888);
+    text-decoration: none;
+    font-size: var(--text-xs);
+    gap: 0.25rem;
+  }
+  
+  .mobile-bottom-nav > *.active {
+    color: var(--color-accent, #3b82f6);
+  }
+  
+  /* Offset main content when bottom nav is visible */
+  .has-mobile-nav {
+    padding-bottom: calc(var(--touch-target-comfortable) + env(safe-area-inset-bottom) + 1rem);
+  }
+}
+
+/* ============================================================================
+   Swipeable/Scrollable Containers
+   ============================================================================ */
+
+.swipe-container {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: var(--space-md);
+  padding-bottom: 0.5rem;
+}
+
+.swipe-container::-webkit-scrollbar {
+  display: none;
+}
+
+.swipe-container > * {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+}
+
+/* ============================================================================
+   Mobile Card/List Item Styles
+   ============================================================================ */
+
+.mobile-card {
+  background: var(--color-surface-elevated, #1e1e1e);
+  border: 1px solid var(--color-divider, #333);
+  border-radius: 0.75rem;
+  padding: var(--space-md);
+  transition: transform 0.15s ease;
+}
+
+.mobile-card:active {
+  transform: scale(0.99);
+}
+
+.mobile-list-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--color-divider, #333);
+  min-height: var(--touch-target-comfortable);
+}
+
+.mobile-list-item:last-child {
+  border-bottom: none;
+}
+
+/* ============================================================================
+   Responsive Modal/Drawer
+   ============================================================================ */
+
+.mobile-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-height: 90vh;
+  max-height: 90dvh;
+  background: var(--color-surface, #121212);
+  border-radius: 1rem 1rem 0 0;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  overflow: hidden;
+  z-index: 1000;
+}
+
+.mobile-drawer.open {
+  transform: translateY(0);
+}
+
+.mobile-drawer-handle {
+  width: 40px;
+  height: 4px;
+  background: var(--color-text-muted, #666);
+  border-radius: 2px;
+  margin: 0.75rem auto;
+}
+
+.mobile-drawer-content {
+  padding: var(--space-md);
+  padding-bottom: max(var(--space-lg), env(safe-area-inset-bottom));
+  overflow-y: auto;
+  max-height: calc(90vh - 3rem);
+  max-height: calc(90dvh - 3rem);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* On larger screens, drawer becomes a side panel */
+@media (min-width: 1024px) {
+  .mobile-drawer {
+    position: fixed;
+    bottom: auto;
+    top: 0;
+    left: auto;
+    right: 0;
+    width: 400px;
+    max-height: 100vh;
+    border-radius: 0;
+    transform: translateX(100%);
+  }
+  
+  .mobile-drawer.open {
+    transform: translateX(0);
+  }
+}
+
+/* ============================================================================
+   Pull to Refresh Support
+   ============================================================================ */
+
+.pull-refresh-container {
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ============================================================================
+   Floating Action Button (FAB)
+   ============================================================================ */
+
+.fab {
+  position: fixed;
+  bottom: calc(var(--space-lg) + env(safe-area-inset-bottom));
+  right: var(--space-lg);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-accent, #3b82f6);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  border: none;
+  cursor: pointer;
+  z-index: 50;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.fab:active {
+  transform: scale(0.95);
+}
+
+@media (hover: hover) {
+  .fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* When bottom nav is present, move FAB up */
+@media (max-width: 767px) {
+  .has-mobile-nav .fab {
+    bottom: calc(var(--touch-target-comfortable) + var(--space-lg) + env(safe-area-inset-bottom));
+  }
+}
+
+/* ============================================================================
+   Typography Responsive Scaling
+   ============================================================================ */
+
+.text-responsive-xs { font-size: var(--text-xs); }
+.text-responsive-sm { font-size: var(--text-sm); }
+.text-responsive-base { font-size: var(--text-base); }
+.text-responsive-lg { font-size: var(--text-lg); }
+.text-responsive-xl { font-size: var(--text-xl); }
+.text-responsive-2xl { font-size: var(--text-2xl); }
+.text-responsive-3xl { font-size: var(--text-3xl); }
+
+/* ============================================================================
+   Responsive Spacing
+   ============================================================================ */
+
+.p-responsive { padding: var(--space-md); }
+.px-responsive { padding-left: var(--space-md); padding-right: var(--space-md); }
+.py-responsive { padding-top: var(--space-md); padding-bottom: var(--space-md); }
+
+.m-responsive { margin: var(--space-md); }
+.mx-responsive { margin-left: var(--space-md); margin-right: var(--space-md); }
+.my-responsive { margin-top: var(--space-md); margin-bottom: var(--space-md); }
+
+.gap-responsive { gap: var(--space-md); }
+
+/* ============================================================================
+   Accessibility: Focus Visible States
+   ============================================================================ */
+
+*:focus-visible {
+  outline: 2px solid var(--color-accent, #3b82f6);
+  outline-offset: 2px;
+}
+
+/* Remove focus ring on touch devices when not using keyboard */
+@media (hover: none) and (pointer: coarse) {
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
+}
+
