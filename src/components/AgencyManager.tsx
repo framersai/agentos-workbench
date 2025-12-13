@@ -1,5 +1,5 @@
 import { FormEvent, useMemo, useState, useEffect } from "react";
-import { Circle, Plus, Trash2, Users, RefreshCcw, Sparkles, History } from "lucide-react";
+import { Plus, Trash2, Users, RefreshCcw, Sparkles, History } from "lucide-react";
 import { useSessionStore } from "@/state/sessionStore";
 import type { AgentOSAgencyUpdateChunk } from "@/types/agentos";
 import { useWorkflowDefinitions } from "@/hooks/useWorkflowDefinitions";

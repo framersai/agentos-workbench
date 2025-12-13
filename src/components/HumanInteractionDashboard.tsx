@@ -469,19 +469,19 @@ export function HumanInteractionDashboard() {
     // In real implementation, call API
   };
 
-  const handleReject = (actionId: string, reason: string) => {
+  const handleReject = (actionId: string, _reason: string) => {
     setApprovals((prev) => prev.filter((a) => a.actionId !== actionId));
-    // In real implementation, call API
+    // In real implementation, call API with _reason
   };
 
-  const handleClarify = (requestId: string, response: { optionId?: string; freeform?: string }) => {
+  const handleClarify = (requestId: string, _response: { optionId?: string; freeform?: string }) => {
     setClarifications((prev) => prev.filter((c) => c.requestId !== requestId));
-    // In real implementation, call API
+    // In real implementation, call API with _response
   };
 
-  const handleEscalationResolve = (escalationId: string, decision: string) => {
+  const handleEscalationResolve = (escalationId: string, _decision: string) => {
     setEscalations((prev) => prev.filter((e) => e.escalationId !== escalationId));
-    // In real implementation, call API
+    // In real implementation, call API with _decision
   };
 
   return (

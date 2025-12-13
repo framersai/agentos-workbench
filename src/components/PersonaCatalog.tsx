@@ -58,7 +58,10 @@ export function PersonaCatalog() {
   const capabilityOptions = useMemo(() => {
     const set = new Set<string>();
     personas.forEach((persona) => {
-      persona.capabilities?.forEach((capability) => set.add(capability));
+      const caps = persona.capabilities;
+      if (Array.isArray(caps)) {
+        caps.forEach((capability) => set.add(capability));
+      }
     });
     personaFilters.capabilities.forEach((capability) => set.add(capability));
     return Array.from(set).sort((a, b) => a.localeCompare(b));

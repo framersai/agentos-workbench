@@ -4,27 +4,23 @@
  * agent evaluation benchmarks and test runs.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Play,
   Pause,
   RotateCcw,
   CheckCircle,
   XCircle,
-  AlertTriangle,
   Clock,
   BarChart2,
   TrendingUp,
-  TrendingDown,
   FileText,
   Download,
-  Filter,
   Plus,
   Trash2,
   Eye,
 } from 'lucide-react';
 import { Button } from './ui/Button';
-import { Input } from './ui/Input';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
 import { Tabs } from './ui/Tabs';

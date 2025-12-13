@@ -4,19 +4,17 @@
  * installing, and managing agents, personas, and extensions.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Search,
   Download,
   Star,
   Package,
   User,
-  Filter,
   Grid,
   List,
   RefreshCw,
   CheckCircle,
-  ExternalLink,
   Trash2,
   Settings,
 } from 'lucide-react';

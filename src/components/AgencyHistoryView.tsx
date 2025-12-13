@@ -6,12 +6,9 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from './ui/Card';
 import { Badge } from './ui/Badge';
-import { Progress } from './ui/Progress';
 import {
   History,
   Clock,
-  CheckCircle,
-  XCircle,
   DollarSign,
   Users,
   Brain,
@@ -103,15 +100,6 @@ export const AgencyHistoryView: React.FC<{ userId: string }> = ({ userId }) => {
       case 'failed': return 'destructive';
       case 'running': return 'primary';
       default: return 'secondary';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircle className="w-4 h-4" />;
-      case 'failed': return <XCircle className="w-4 h-4" />;
-      case 'running': return <Clock className="w-4 h-4 animate-spin" />;
-      default: return <Clock className="w-4 h-4" />;
     }
   };
 
@@ -261,7 +249,7 @@ export const AgencyHistoryView: React.FC<{ userId: string }> = ({ userId }) => {
                             <div>
                               <div className="font-medium mb-1">Tasks:</div>
                               <ul className="list-disc list-inside space-y-0.5 pl-1">
-                                {emergentData.tasksDecomposed.map((task: any) => (
+                                {emergentData.tasksDecomposed.map((task: { taskId: string; description: string }) => (
                                   <li key={task.taskId}>
                                     {task.description}
                                   </li>

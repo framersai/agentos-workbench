@@ -6,7 +6,7 @@
  * @module AgentOS-Workbench/Planning
  */
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Play,
   Pause,
@@ -287,7 +287,7 @@ function PlanCard({ plan }: { plan: ExecutionPlan }) {
  * PlanningDashboard - Main dashboard component
  */
 export function PlanningDashboard() {
-  const [plans, setPlans] = useState<ExecutionPlan[]>(mockPlans);
+  const [plans, _setPlans] = useState<ExecutionPlan[]>(mockPlans);
   const [filter, setFilter] = useState<'all' | 'executing' | 'completed' | 'failed'>('all');
 
   // Filter plans

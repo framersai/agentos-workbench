@@ -51,20 +51,23 @@ pnpm run demo:record -- --width 2560 --height 1440
 demo-automation/
 ├── README.md                 # This file
 ├── agent-instructions.md     # LLM agent system prompt
-├── run.ts                    # Main entry point / CLI
-├── package.json
-├── tsconfig.json
+├── demo-scripts/             # Individual demo scripts
+│   ├── agent-creation.ts
+│   ├── multi-agent.ts
+│   ├── rag-memory.ts
+│   ├── planning-engine.ts
+│   └── streaming.ts
 ├── lib/
-│   ├── browser-agent.ts      # Browser automation + embedded demo scripts
-│   ├── recorder.ts           # Screen recording + caption overlay
+│   ├── recorder.ts           # Screen recording controller
+│   ├── browser-agent.ts      # LLM-powered browser automation
+│   ├── caption-overlay.ts    # Caption injection system
 │   └── video-processor.ts    # FFmpeg video processing
-└── output/                   # Generated videos (gitignored)
-    ├── raw/                  # Raw WebM recordings
-    ├── processed/            # Final MP4s with captions
-    └── thumbnails/           # Video thumbnails
+├── output/                   # Generated videos (gitignored)
+│   ├── raw/                  # Raw WebM recordings
+│   ├── processed/            # Final MP4s with captions
+│   └── thumbnails/           # Video thumbnails
+└── run.ts                    # Main entry point
 ```
-
-**Note:** Demo scripts are defined inline in `lib/browser-agent.ts` as `DEMO_SCRIPTS` rather than separate files, and caption overlay functionality is integrated into `lib/recorder.ts`.
 
 ## Configuration
 
