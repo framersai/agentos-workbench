@@ -50,6 +50,10 @@ export function PersonaWizard({ open, onClose }: PersonaWizardProps) {
     metadata: {},
   });
 
+  // Store raw string values for comma-separated inputs
+  const [tagsInput, setTagsInput] = useState('');
+  const [traitsInput, setTraitsInput] = useState('');
+
   const currentStepIndex = STEPS.findIndex((s) => s.key === step);
   const isLastStep = currentStepIndex === STEPS.length - 1;
 
@@ -73,13 +77,17 @@ export function PersonaWizard({ open, onClose }: PersonaWizardProps) {
       return;
     }
 
+    // Parse comma-separated inputs into arrays
+    const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
+    const traits = traitsInput.split(',').map((t) => t.trim()).filter(Boolean);
+
     const id = draft.displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-') || `persona-${Date.now()}`;
     const persona: PersonaDefinition = {
       id,
       displayName: draft.displayName.trim(),
       description: draft.description?.trim(),
-      tags: draft.tags || [],
-      traits: draft.traits || [],
+      tags,
+      traits,
       capabilities: draft.capabilities || [],
       metadata: {
         ...draft.metadata,
@@ -107,6 +115,8 @@ export function PersonaWizard({ open, onClose }: PersonaWizardProps) {
       extensions: [],
       metadata: {},
     });
+    setTagsInput('');
+    setTraitsInput('');
     setStep('basics');
   };
 
@@ -180,8 +190,8 @@ export function PersonaWizard({ open, onClose }: PersonaWizardProps) {
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Tags (comma-separated)</span>
                 <input
-                  value={(draft.tags || []).join(', ')}
-                  onChange={(e) => setDraft((d) => ({ ...d, tags: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) }))}
+                  value={tagsInput}
+                  onChange={(e) => setTagsInput(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950"
                   placeholder="research, analysis, web-search"
                 />
@@ -189,8 +199,8 @@ export function PersonaWizard({ open, onClose }: PersonaWizardProps) {
               <label className="block">
                 <span className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Traits (comma-separated)</span>
                 <input
-                  value={(draft.traits || []).join(', ')}
-                  onChange={(e) => setDraft((d) => ({ ...d, traits: e.target.value.split(',').map((t) => t.trim()).filter(Boolean) }))}
+                  value={traitsInput}
+                  onChange={(e) => setTraitsInput(e.target.value)}
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950"
                   placeholder="analytical, thorough, curious"
                 />

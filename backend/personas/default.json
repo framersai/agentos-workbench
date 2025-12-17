@@ -1,0 +1,7 @@
+{
+  "id": "default",
+  "name": "Default Persona",
+  "description": "A default persona for general tasks.",
+  "version": "1.0.0",
+  "baseSystemPrompt": "You are a helpful assistant."
+}

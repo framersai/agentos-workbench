@@ -588,19 +588,53 @@ export function SessionInspector() {
       : "bg-white text-slate-900 dark:bg-slate-900/50 dark:text-slate-100"
   );
   const timelineScrollRef = useRef<HTMLDivElement | null>(null);
+  const [userScrolledUp, setUserScrolledUp] = useState(false);
+
   const persistSessionSnapshot = useCallback((sessionId: string) => {
     const latest = useSessionStore.getState().sessions.find((item) => item.id === sessionId);
     if (latest) {
       void persistSessionRow(latest);
     }
   }, []);
+
+  // Effect to scroll to bottom on new messages, but only if user hasn't scrolled up
+  useEffect(() => {
+    if (!userScrolledUp && timelineScrollRef.current) {
+      const container = timelineScrollRef.current;
+      requestAnimationFrame(() => {
+        container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      });
+    }
+  }, [session?.id, session?.events.length, userScrolledUp]);
+
+  // Handle user scrolling
+  const handleScroll = useCallback(() => {
+    if (timelineScrollRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = timelineScrollRef.current;
+      // If scrolled near the bottom (within 100px), reset userScrolledUp
+      if (scrollHeight - scrollTop - clientHeight < 100) {
+        setUserScrolledUp(false);
+      } else {
+        setUserScrolledUp(true);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     const container = timelineScrollRef.current;
-    if (!container) return;
-    requestAnimationFrame(() => {
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
+
+  const scrollToBottom = useCallback(() => {
+    if (timelineScrollRef.current) {
+      const container = timelineScrollRef.current;
       container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-    });
-  }, [session?.id, session?.events.length]);
+      setUserScrolledUp(false);
+    }
+  }, []);
 
   const handleExport = () => {
     if (!session) return;
