@@ -18,18 +18,16 @@ jobs:
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-          cache: 'npm'
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
       - name: Install
-        run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+        run: pnpm install --no-frozen-lockfile
       - name: Build
-        run: npm run build --if-present
+        run: pnpm run build --if-present
       - name: Test
-        run: npm test --if-present
+        run: pnpm test --if-present
       - name: Publish
         run: |
           pkg_private=$(node -e "try{console.log(require('./package.json').private===true?'true':'false')}catch(e){console.log('false')}")
@@ -37,7 +35,7 @@ jobs:
             echo "package.json is private; skipping publish."
             exit 0
           fi
-          npm publish --provenance --access public
+          pnpm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

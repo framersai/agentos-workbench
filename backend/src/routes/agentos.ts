@@ -1,13 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { AgentOSResponseChunkType } from '@framers/agentos';
 import { agentos } from '../lib/agentos';
-import {
-  mockExtensions,
-  mockTools,
-  mockModels,
-  mockGuardrails,
-  mockExecutions
-} from '../mockData';
 
 /**
  * Registers AgentOS routes.
@@ -316,7 +309,8 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
       }
     }
   }, async () => {
-    return mockExtensions;
+    // TODO: Return real extensions from AgentOS when available
+    return [];
   });
 
   /**
@@ -343,7 +337,8 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
       }
     }
   }, async () => {
-    return mockTools;
+    // TODO: Return real tools from AgentOS when available
+    return [];
   });
 
   /**
@@ -466,7 +461,8 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
       }
     }
   }, async () => {
-    return { models: mockModels };
+    // TODO: Return real models from AgentOS configuration when available
+    return { models: [] };
   });
 
   /**
@@ -495,7 +491,8 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
       }
     }
   }, async () => {
-    return mockGuardrails;
+    // TODO: Return real guardrails from AgentOS when available
+    return [];
   });
 
   /**
@@ -534,7 +531,8 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
       }
     }
   }, async () => {
-    return { executions: mockExecutions };
+    // TODO: Return real agency execution history when available
+    return { executions: [] };
   });
 
   /**
@@ -577,12 +575,9 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
         }
       }
     }
-  }, async (request) => {
-    const { agencyId } = request.params as { agencyId: string };
-    const execution = mockExecutions.find(e => e.agencyId === agencyId);
-    if (!execution) {
-      throw { statusCode: 404, message: 'Execution not found' };
-    }
-    return { execution, seats: [] };
+  }, async (_request, reply) => {
+    // TODO: Return real agency execution when available
+    reply.code(404);
+    return { statusCode: 404, message: 'Execution not found' };
   });
 }

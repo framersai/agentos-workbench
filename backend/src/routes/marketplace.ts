@@ -1,5 +1,4 @@
 import { FastifyInstance } from 'fastify';
-import { mockMarketplaceItems } from '../mockData';
 
 /**
  * Registers Marketplace routes.
@@ -56,7 +55,8 @@ export default async function marketplaceRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request) => {
-    return mockMarketplaceItems;
+    // TODO: Return real marketplace items when marketplace is implemented
+    return [];
   });
 
   /**

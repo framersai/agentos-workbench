@@ -1,5 +1,4 @@
 import { FastifyInstance } from 'fastify';
-import { mockEvaluationRuns } from '../mockData';
 
 /**
  * Registers Evaluation routes.
@@ -34,7 +33,8 @@ export default async function evaluationRoutes(fastify: FastifyInstance) {
       }
     }
   }, async () => {
-    return mockEvaluationRuns;
+    // TODO: Return real evaluation runs when evaluation system is implemented
+    return [];
   });
 
   /**
