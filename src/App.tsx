@@ -8,7 +8,23 @@ import { AgencyComposer } from "@/components/AgencyComposer";
 import { AgencyManager } from "@/components/AgencyManager";
 import { PersonaCatalog } from "@/components/PersonaCatalog";
 import { WorkflowOverview } from "@/components/WorkflowOverview";
-import { openAgentOSStream, getAvailableModels, type AgentRoleConfig, type AgentOSModelInfo } from "@/lib/agentosClient";
+import {
+  openAgentOSStream,
+  getAvailableModels,
+  getTaskOutcomeTelemetry,
+  getTaskOutcomeTelemetryConfig,
+  getTaskOutcomeAlertHistory,
+  getTaskOutcomeAlertRetentionStatus,
+  pruneTaskOutcomeAlertHistory,
+  setTaskOutcomeAlertAcknowledged,
+  type AgentRoleConfig,
+  type AgentOSModelInfo,
+  type TaskOutcomeAlertHistoryResponse,
+  type TaskOutcomeAlertRetentionStatus,
+  type TaskOutcomeAlertRetentionSummary,
+  type TaskOutcomeRuntimeConfigResponse,
+  type TaskOutcomeTelemetryResponse
+} from "@/lib/agentosClient";
 import { bootstrapStorage, persistSessionEventRow, persistSessionRow } from "@/lib/storageBridge";
 import { TourOverlay } from "@/components/TourOverlay";
 import { ThemePanel } from "@/components/ThemePanel";
@@ -20,8 +36,90 @@ import { usePersonas } from "@/hooks/usePersonas";
 import { useSystemTheme } from "@/hooks/useSystemTheme";
 import { useSessionStore, type AgentSession, type SessionEvent, type SessionUpdate } from "@/state/sessionStore";
 import { useTelemetryStore } from "@/state/telemetryStore";
-import { Menu } from "lucide-react";
+import { AlertTriangle, Menu, X } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  AgentOSChunkType,
+  type AgentOSAgencyUpdateChunk,
+  type AgentOSTaskOutcomeAlert,
+  type AgentOSWorkflowUpdateChunk,
+} from "@/types/agentos";
+import {
+  toAlertHistoryFilterParams,
+  type AlertAckFilter,
+  type AlertSeverityFilter,
+} from "@/lib/taskOutcomeHealthFilters";
+
+type LiveTaskOutcomeAlert = AgentOSTaskOutcomeAlert & {
+  id: string;
+  sessionId: string;
+  receivedAt: number;
+};
+
+type TaskOutcomeHealthScopeJump = {
+  scope: string;
+  token: number;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  return value as Record<string, unknown>;
+}
+
+function toAlertPercent(value: unknown): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "—";
+  const normalized = Math.max(0, Math.min(1, value));
+  return `${Math.round(normalized * 100)}%`;
+}
+
+function extractTaskOutcomeAlert(chunk: unknown): AgentOSTaskOutcomeAlert | null {
+  const parsedChunk = asRecord(chunk);
+  if (!parsedChunk) return null;
+  if (parsedChunk.type !== AgentOSChunkType.METADATA_UPDATE) return null;
+
+  const updates = asRecord(parsedChunk.updates);
+  if (!updates) return null;
+  const rawAlert = asRecord(updates.taskOutcomeAlert);
+  if (!rawAlert) return null;
+
+  const scopeKey = typeof rawAlert.scopeKey === "string" ? rawAlert.scopeKey.trim() : "";
+  if (!scopeKey) return null;
+
+  const severityRaw = typeof rawAlert.severity === "string" ? rawAlert.severity.trim() : "warning";
+  const severity = severityRaw.length > 0 ? severityRaw : "warning";
+  const reason =
+    typeof rawAlert.reason === "string" && rawAlert.reason.trim().length > 0
+      ? rawAlert.reason.trim()
+      : "Task outcome KPI dropped below threshold.";
+  const threshold =
+    typeof rawAlert.threshold === "number" && Number.isFinite(rawAlert.threshold)
+      ? Math.max(0, Math.min(1, rawAlert.threshold))
+      : 0;
+  const value =
+    typeof rawAlert.value === "number" && Number.isFinite(rawAlert.value)
+      ? Math.max(0, Math.min(1, rawAlert.value))
+      : 0;
+  const sampleCount =
+    typeof rawAlert.sampleCount === "number" && Number.isFinite(rawAlert.sampleCount)
+      ? Math.max(0, Math.round(rawAlert.sampleCount))
+      : 0;
+  const timestamp =
+    typeof rawAlert.timestamp === "string" && rawAlert.timestamp.trim().length > 0
+      ? rawAlert.timestamp
+      : new Date().toISOString();
+
+  return {
+    scopeKey,
+    severity,
+    reason,
+    threshold,
+    value,
+    sampleCount,
+    timestamp,
+  };
+}
 
 function TelemetryView() {
   const perSession = useTelemetryStore((s) => s.perSession);
@@ -111,11 +209,471 @@ function AnalyticsView({
     </div>
   );
 }
-import {
-  AgentOSChunkType,
-  type AgentOSAgencyUpdateChunk,
-  type AgentOSWorkflowUpdateChunk
-} from "@/types/agentos";
+
+function TaskOutcomeHealthView({
+  liveAlertCount,
+  scopeJump,
+}: {
+  liveAlertCount: number;
+  scopeJump: TaskOutcomeHealthScopeJump | null;
+}) {
+  const activeSessionId = useSessionStore((s) => s.activeSessionId);
+  const activeSession = useSessionStore((s) =>
+    s.sessions.find((session) => session.id === s.activeSessionId)
+  );
+  const [scopeMode, setScopeMode] = useState<"all" | "global" | "organization" | "organization_persona">("all");
+  const [scopeContains, setScopeContains] = useState("");
+  const [sortBy, setSortBy] = useState<"updated_at" | "weighted_success_rate" | "sample_count" | "scope_key">("updated_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [alertSeverityFilter, setAlertSeverityFilter] = useState<AlertSeverityFilter>("all");
+  const [alertAckFilter, setAlertAckFilter] = useState<AlertAckFilter>("all");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(6);
+  const [snapshot, setSnapshot] = useState<TaskOutcomeTelemetryResponse | null>(null);
+  const [alertSnapshot, setAlertSnapshot] = useState<TaskOutcomeAlertHistoryResponse | null>(null);
+  const [retentionStatus, setRetentionStatus] = useState<TaskOutcomeAlertRetentionStatus | null>(null);
+  const [lastPruneSummary, setLastPruneSummary] = useState<TaskOutcomeAlertRetentionSummary | null>(null);
+  const [config, setConfig] = useState<TaskOutcomeRuntimeConfigResponse | null>(null);
+  const [acknowledgingAlertId, setAcknowledgingAlertId] = useState<string | null>(null);
+  const [pruningAlerts, setPruningAlerts] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const scopeModeParam = scopeMode === "all" ? undefined : scopeMode;
+  const normalizedScopeContains = scopeContains.trim();
+  const alertHistoryParams = toAlertHistoryFilterParams(alertSeverityFilter, alertAckFilter);
+
+  useEffect(() => {
+    if (!scopeJump?.scope) return;
+    setScopeMode("all");
+    setScopeContains(scopeJump.scope);
+    setPage(1);
+  }, [scopeJump?.token, scopeJump?.scope]);
+
+  const loadHealth = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      setError(null);
+      try {
+        const [nextSnapshot, nextConfig, nextAlertSnapshot, nextRetentionStatus] = await Promise.all([
+          getTaskOutcomeTelemetry({
+            scopeMode: scopeModeParam,
+            scopeContains: normalizedScopeContains || undefined,
+            sortBy,
+            sortDir,
+            page,
+            limit,
+          }),
+          getTaskOutcomeTelemetryConfig(),
+          getTaskOutcomeAlertHistory({
+            scopeMode: scopeModeParam,
+            scopeContains: normalizedScopeContains || undefined,
+            severity: alertHistoryParams.severity,
+            acknowledged: alertHistoryParams.acknowledged,
+            limit: 8,
+            page: 1,
+            sortBy: "alert_timestamp",
+            sortDir: "desc",
+          }),
+          getTaskOutcomeAlertRetentionStatus(),
+        ]);
+        if (!mountedRef.current) return;
+        setSnapshot(nextSnapshot);
+        setConfig(nextConfig);
+        setAlertSnapshot(nextAlertSnapshot);
+        setRetentionStatus(nextRetentionStatus);
+        setLastPruneSummary(nextRetentionStatus.lastSummary);
+      } catch (err: any) {
+        if (!mountedRef.current) return;
+        setError(err?.message || "Failed to fetch task outcome health");
+      } finally {
+        if (!silent && mountedRef.current) setLoading(false);
+      }
+    },
+    [
+      alertHistoryParams.acknowledged,
+      alertHistoryParams.severity,
+      normalizedScopeContains,
+      scopeModeParam,
+      sortBy,
+      sortDir,
+      page,
+      limit,
+    ]
+  );
+
+  useEffect(() => {
+    void loadHealth();
+    const timer = window.setInterval(() => {
+      void loadHealth(true);
+    }, 15000);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [activeSessionId, loadHealth]);
+
+  const totals = snapshot?.totals;
+  const windows = snapshot?.windows ?? [];
+  const persistedAlerts = alertSnapshot?.alerts ?? [];
+  const unacknowledgedPersistedAlerts = alertSnapshot?.totals.unacknowledgedCount ?? 0;
+  const pagination = snapshot?.pagination;
+  const degradedWindows = windows
+    .slice()
+    .sort((a, b) => a.weightedSuccessRate - b.weightedSuccessRate)
+    .slice(0, 3);
+  const activePersonaId = activeSession?.personaId;
+  const activePersonaWindow =
+    activePersonaId && windows.length > 0
+      ? windows.find((window) => window.personaId === activePersonaId) ?? null
+      : null;
+  const threshold = config?.taskOutcomeTelemetry.alertBelowWeightedSuccessRate ?? 0.55;
+  const thresholdPercent = `${Math.round(threshold * 100)}%`;
+
+  const handleAcknowledgeToggle = useCallback(
+    async (alertId: string, acknowledged: boolean) => {
+      setAcknowledgingAlertId(alertId);
+      setError(null);
+      try {
+        await setTaskOutcomeAlertAcknowledged(alertId, acknowledged);
+        if (!mountedRef.current) return;
+        await loadHealth(true);
+      } catch (err: any) {
+        if (!mountedRef.current) return;
+        setError(err?.message || "Failed to update alert acknowledgement");
+      } finally {
+        if (mountedRef.current) {
+          setAcknowledgingAlertId(null);
+        }
+      }
+    },
+    [loadHealth]
+  );
+
+  const handlePruneAlerts = useCallback(async () => {
+    setPruningAlerts(true);
+    setError(null);
+    try {
+      const result = await pruneTaskOutcomeAlertHistory();
+      if (!mountedRef.current) return;
+      setLastPruneSummary(result.summary);
+      setRetentionStatus(result.status);
+      await loadHealth(true);
+    } catch (err: any) {
+      if (!mountedRef.current) return;
+      setError(err?.message || "Failed to prune alert history");
+    } finally {
+      if (mountedRef.current) {
+        setPruningAlerts(false);
+      }
+    }
+  }, [loadHealth]);
+
+  return (
+    <div className="space-y-2 text-xs theme-text-secondary">
+      <div className="flex items-center justify-between">
+        <span>Live alerts</span>
+        <span className="font-semibold theme-text-primary">{liveAlertCount}</span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span>Persisted unacked</span>
+        <span className="font-semibold theme-text-primary">{unacknowledgedPersistedAlerts}</span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span>Rolling weighted success</span>
+        <span className="font-semibold theme-text-primary">
+          {totals ? `${Math.round(totals.weightedSuccessRate * 100)}%` : "—"}
+        </span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span>Total samples</span>
+        <span className="font-semibold theme-text-primary">{totals?.sampleCount ?? "—"}</span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span>Alert threshold</span>
+        <span className="font-semibold theme-text-primary">{thresholdPercent}</span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span>Failure mode</span>
+        <span className="font-semibold theme-text-primary">
+          {config?.turnPlanning.defaultToolFailureMode ?? "fail_open"}
+        </span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span>Adaptive force fail-open</span>
+        <span className="font-semibold theme-text-primary">
+          {config?.adaptiveExecution.forceFailOpenWhenDegraded !== false ? "on" : "off"}
+        </span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span>Tenant mode</span>
+        <span className="font-semibold theme-text-primary">{config?.tenantRouting.mode ?? "—"}</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 pt-1">
+        <label className="space-y-1">
+          <span className="block text-[10px] uppercase tracking-widest theme-text-muted">Scope</span>
+          <select
+            value={scopeMode}
+            onChange={(event) => {
+              setScopeMode(event.target.value as typeof scopeMode);
+              setPage(1);
+            }}
+            className="w-full rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-xs theme-text-primary"
+          >
+            <option value="all">All</option>
+            <option value="global">Global</option>
+            <option value="organization">Organization</option>
+            <option value="organization_persona">Org + Persona</option>
+          </select>
+        </label>
+        <label className="space-y-1">
+          <span className="block text-[10px] uppercase tracking-widest theme-text-muted">Sort</span>
+          <select
+            value={sortBy}
+            onChange={(event) => {
+              setSortBy(event.target.value as typeof sortBy);
+              setPage(1);
+            }}
+            className="w-full rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-xs theme-text-primary"
+          >
+            <option value="updated_at">Updated</option>
+            <option value="weighted_success_rate">Weighted Success</option>
+            <option value="sample_count">Sample Count</option>
+            <option value="scope_key">Scope Key</option>
+          </select>
+        </label>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <label className="space-y-1">
+          <span className="block text-[10px] uppercase tracking-widest theme-text-muted">Search scope</span>
+          <input
+            value={scopeContains}
+            onChange={(event) => {
+              setScopeContains(event.target.value);
+              setPage(1);
+            }}
+            placeholder="org:acme"
+            className="w-full rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-xs theme-text-primary"
+          />
+        </label>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="space-y-1">
+            <span className="block text-[10px] uppercase tracking-widest theme-text-muted">Dir</span>
+            <select
+              value={sortDir}
+              onChange={(event) => {
+                setSortDir(event.target.value as "asc" | "desc");
+                setPage(1);
+              }}
+              className="w-full rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-xs theme-text-primary"
+            >
+              <option value="desc">Desc</option>
+              <option value="asc">Asc</option>
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="block text-[10px] uppercase tracking-widest theme-text-muted">Page size</span>
+            <select
+              value={limit}
+              onChange={(event) => {
+                setLimit(Number(event.target.value) || 6);
+                setPage(1);
+              }}
+              className="w-full rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-xs theme-text-primary"
+            >
+              <option value={4}>4</option>
+              <option value={6}>6</option>
+              <option value={10}>10</option>
+              <option value={20}>20</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      {windows.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] uppercase tracking-widest theme-text-muted">Scope windows (page)</p>
+          {windows.map((window) => (
+            <div
+              key={window.scopeKey}
+              className="flex items-center justify-between rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1"
+            >
+              <span className="truncate pr-2">{window.scopeKey}</span>
+              <span className="font-semibold theme-text-primary">
+                {Math.round(window.weightedSuccessRate * 100)}% / {window.sampleCount}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      {activePersonaId && (
+        <div className="rounded-md border theme-border bg-[color:var(--color-background-secondary)] p-2">
+          <p className="text-[10px] uppercase tracking-widest theme-text-muted">Active persona scope</p>
+          <p className="mt-1 font-semibold theme-text-primary">
+            {activePersonaWindow
+              ? `${Math.round(activePersonaWindow.weightedSuccessRate * 100)}% (${activePersonaWindow.sampleCount} samples)`
+              : "No scoped KPI window yet"}
+          </p>
+        </div>
+      )}
+      {degradedWindows.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[10px] uppercase tracking-widest theme-text-muted">Most degraded scopes</p>
+          {degradedWindows.map((window) => (
+            <div key={window.scopeKey} className="flex items-center justify-between rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1">
+              <span className="truncate pr-2">{window.scopeKey}</span>
+              <span className="font-semibold theme-text-primary">
+                {Math.round(window.weightedSuccessRate * 100)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="rounded-md border theme-border bg-[color:var(--color-background-secondary)] p-2">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[10px] uppercase tracking-widest theme-text-muted">Alert retention</p>
+          <button
+            type="button"
+            onClick={() => {
+              void handlePruneAlerts();
+            }}
+            className="rounded-full border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-[10px] uppercase tracking-widest theme-text-secondary disabled:opacity-40"
+            disabled={pruningAlerts || retentionStatus?.pruneInFlight}
+          >
+            {pruningAlerts || retentionStatus?.pruneInFlight ? "Pruning..." : "Prune now"}
+          </button>
+        </div>
+        <p className="mt-1">
+          {retentionStatus
+            ? `${retentionStatus.config.enabled ? "Enabled" : "Disabled"} • ${retentionStatus.config.retentionDays}d • max ${retentionStatus.config.maxRows.toLocaleString()} rows`
+            : "Loading retention policy..."}
+        </p>
+        {lastPruneSummary && (
+          <p className="mt-1 text-[10px] theme-text-muted">
+            Last prune {new Date(lastPruneSummary.prunedAt).toLocaleString()} • deleted {lastPruneSummary.totalDeleted} • remaining {lastPruneSummary.remainingRows.toLocaleString()}
+          </p>
+        )}
+      </div>
+      <div className="space-y-1">
+        <p className="text-[10px] uppercase tracking-widest theme-text-muted">Persisted alerts</p>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="space-y-1">
+            <span className="block text-[10px] uppercase tracking-widest theme-text-muted">Severity</span>
+            <select
+              value={alertSeverityFilter}
+              onChange={(event) => {
+                setAlertSeverityFilter(event.target.value as typeof alertSeverityFilter);
+              }}
+              className="w-full rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-xs theme-text-primary"
+            >
+              <option value="all">All</option>
+              <option value="critical">Critical</option>
+              <option value="warning">Warning</option>
+            </select>
+          </label>
+          <label className="space-y-1">
+            <span className="block text-[10px] uppercase tracking-widest theme-text-muted">Ack state</span>
+            <select
+              value={alertAckFilter}
+              onChange={(event) => {
+                setAlertAckFilter(event.target.value as typeof alertAckFilter);
+              }}
+              className="w-full rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-xs theme-text-primary"
+            >
+              <option value="all">All</option>
+              <option value="unacknowledged">Unacknowledged</option>
+              <option value="acknowledged">Acknowledged</option>
+            </select>
+          </label>
+        </div>
+        {persistedAlerts.length === 0 ? (
+          <p className="rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-2 py-2">
+            No persisted alerts for current filters.
+          </p>
+        ) : (
+          persistedAlerts.map((alert) => {
+            const acknowledged = Boolean(alert.acknowledgedAt);
+            const severity = alert.severity.toLowerCase();
+            const severityClass =
+              severity === "critical" ? "text-rose-600 dark:text-rose-300" : "theme-text-secondary";
+            const timestampLabel = new Date(alert.alertTimestamp).toLocaleString();
+            return (
+              <div
+                key={alert.alertId}
+                className="rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-2 py-2"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold theme-text-primary">{alert.scopeKey}</p>
+                    <p className={`text-[10px] uppercase tracking-widest ${severityClass}`}>{alert.severity}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void handleAcknowledgeToggle(alert.alertId, !acknowledged);
+                    }}
+                    className="rounded-full border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-[10px] uppercase tracking-widest theme-text-secondary disabled:opacity-40"
+                    disabled={acknowledgingAlertId === alert.alertId}
+                  >
+                    {acknowledged ? "Unack" : "Ack"}
+                  </button>
+                </div>
+                <p className="mt-1 line-clamp-2">{alert.reason}</p>
+                <p className="mt-1 text-[10px] theme-text-muted">
+                  {toAlertPercent(alert.value)} vs {toAlertPercent(alert.threshold)} • {alert.sampleCount} samples • {timestampLabel}
+                </p>
+                {acknowledged && (
+                  <p className="mt-1 text-[10px] theme-text-muted">
+                    Acknowledged {alert.acknowledgedAt ? new Date(alert.acknowledgedAt).toLocaleString() : ""}
+                  </p>
+                )}
+              </div>
+            );
+          })
+        )}
+      </div>
+      {error && <p className="text-rose-500">{error}</p>}
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={!pagination?.hasPreviousPage}
+            className="rounded-full border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-[10px] uppercase tracking-widest theme-text-secondary disabled:opacity-40"
+          >
+            Prev
+          </button>
+          <span className="text-[10px] theme-text-muted">
+            {pagination ? `Page ${pagination.page}/${pagination.totalPages}` : "Page —"}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPage((prev) => prev + 1)}
+            disabled={!pagination?.hasNextPage}
+            className="rounded-full border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-[10px] uppercase tracking-widest theme-text-secondary disabled:opacity-40"
+          >
+            Next
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            void loadHealth();
+          }}
+          className="rounded-full border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-[10px] uppercase tracking-widest theme-text-secondary hover:opacity-90"
+          disabled={loading}
+        >
+          {loading ? "Refreshing..." : "Refresh"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const DEFAULT_PERSONA_ID = "v_researcher";
 const DEMO_PERSONA_SESSION_ID = "demo-persona-session";
@@ -148,6 +706,11 @@ export default function App() {
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   const [modelData, setModelData] = useState<AgentOSModelInfo[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | undefined>(undefined);
+  const [liveTaskOutcomeAlerts, setLiveTaskOutcomeAlerts] = useState<LiveTaskOutcomeAlert[]>([]);
+  const [taskOutcomeAlertToasts, setTaskOutcomeAlertToasts] = useState<LiveTaskOutcomeAlert[]>([]);
+  const [healthScopeJump, setHealthScopeJump] = useState<TaskOutcomeHealthScopeJump | null>(null);
+  const alertCooldownRef = useRef<Map<string, number>>(new Map());
+  const toastTimeoutRef = useRef<Record<string, number>>({});
   const welcomeTourDismissed = useUiStore((s) => s.welcomeTourDismissed);
   const welcomeTourSnoozeUntil = useUiStore((s) => s.welcomeTourSnoozeUntil);
   const dismissWelcomeTour = useUiStore((s) => s.dismissWelcomeTour);
@@ -200,9 +763,69 @@ export default function App() {
     return activeSessionId ? sessions.find(s => s.id === activeSessionId) : undefined;
   }, [activeSessionId, sessions]);
   const isAgencyStreaming = activeSession?.targetType === 'agency' && activeSession.status === 'streaming';
+  const liveAlertCount = liveTaskOutcomeAlerts.length;
 
   const streamHandles = useRef<Record<string, () => void>>({});
   const telemetry = useTelemetryStore();
+
+  const dismissTaskOutcomeToast = useCallback((alertId: string) => {
+    setTaskOutcomeAlertToasts((current) => current.filter((alert) => alert.id !== alertId));
+    const timeoutId = toastTimeoutRef.current[alertId];
+    if (timeoutId) {
+      window.clearTimeout(timeoutId);
+      delete toastTimeoutRef.current[alertId];
+    }
+  }, []);
+
+  const noteTaskOutcomeAlert = useCallback(
+    (alert: AgentOSTaskOutcomeAlert, sessionId: string) => {
+      const now = Date.now();
+      const dedupeKey = `${alert.scopeKey}::${alert.severity}`;
+      const lastSeenAt = alertCooldownRef.current.get(dedupeKey) ?? 0;
+      const dedupeCooldownMs = 15_000;
+      if (now - lastSeenAt < dedupeCooldownMs) {
+        return;
+      }
+      alertCooldownRef.current.set(dedupeKey, now);
+
+      const timestampMs = Date.parse(alert.timestamp);
+      const normalizedTimestamp = Number.isFinite(timestampMs)
+        ? new Date(timestampMs).toISOString()
+        : new Date(now).toISOString();
+
+      const entry: LiveTaskOutcomeAlert = {
+        ...alert,
+        timestamp: normalizedTimestamp,
+        id: `${alert.scopeKey}-${now}-${Math.random().toString(36).slice(2, 8)}`,
+        sessionId,
+        receivedAt: now,
+      };
+
+      setLiveTaskOutcomeAlerts((current) => {
+        const next = [entry, ...current.filter((item) => item.scopeKey !== alert.scopeKey)];
+        return next.slice(0, 64);
+      });
+
+      setTaskOutcomeAlertToasts((current) => [entry, ...current].slice(0, 5));
+      const toastTtlMs = 12_000;
+      const timeoutId = window.setTimeout(() => {
+        setTaskOutcomeAlertToasts((current) => current.filter((item) => item.id !== entry.id));
+        delete toastTimeoutRef.current[entry.id];
+      }, toastTtlMs);
+      toastTimeoutRef.current[entry.id] = timeoutId;
+    },
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      for (const timeoutId of Object.values(toastTimeoutRef.current)) {
+        window.clearTimeout(timeoutId);
+      }
+      toastTimeoutRef.current = {};
+    };
+  }, []);
+
   const personasQuery = usePersonas({
     filters: {
       search: personaFilters.search.trim() ? personaFilters.search.trim() : undefined,
@@ -624,6 +1247,10 @@ export default function App() {
             });
 
             telemetry.noteChunk(sessionId, chunk);
+            const taskOutcomeAlert = extractTaskOutcomeAlert(chunk);
+            if (taskOutcomeAlert) {
+              noteTaskOutcomeAlert(taskOutcomeAlert, sessionId);
+            }
 
             if (chunk.type === AgentOSChunkType.AGENCY_UPDATE) {
               applyAgencySnapshot((chunk as AgentOSAgencyUpdateChunk).agency);
@@ -668,6 +1295,7 @@ export default function App() {
       pushEvent,
       selectedModel,
       telemetry,
+      noteTaskOutcomeAlert,
       t
     ]
   );
@@ -713,6 +1341,18 @@ export default function App() {
             <a href="https://agentos.sh/docs" target="_blank" rel="noreferrer" className="theme-text-secondary transition-colors hover:text-[color:var(--color-accent-primary)]">Docs</a>
             <a href="https://github.com/framersai/agentos" target="_blank" rel="noreferrer" className="theme-text-secondary transition-colors hover:text-[color:var(--color-accent-primary)]">GitHub</a>
             <a href="https://vca.chat" target="_blank" rel="noreferrer" className="theme-text-secondary transition-colors hover:text-[color:var(--color-accent-primary)]">Marketplace</a>
+            <div
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 ${
+                liveAlertCount > 0
+                  ? "border-rose-300 bg-rose-50 text-rose-700"
+                  : "theme-border bg-[color:var(--color-background-secondary)] theme-text-secondary"
+              }`}
+              title="Live task outcome KPI alerts"
+            >
+              <AlertTriangle className="h-3 w-3" />
+              <span className="uppercase tracking-widest">Alerts</span>
+              <span className="font-semibold">{liveAlertCount}</span>
+            </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -974,6 +1614,10 @@ export default function App() {
                               payload: chunk,
                             });
                             telemetry.noteChunk(sessionId, chunk);
+                            const taskOutcomeAlert = extractTaskOutcomeAlert(chunk);
+                            if (taskOutcomeAlert) {
+                              noteTaskOutcomeAlert(taskOutcomeAlert, sessionId);
+                            }
                             
                             if (chunk.type === 'agency_update') {
                               applyAgencySnapshot((chunk as AgentOSAgencyUpdateChunk).agency);
@@ -1037,7 +1681,7 @@ export default function App() {
                 <SessionInspector />
               </div>
               <div className="border-t border-slate-200 dark:border-white/10 md:hidden" />
-              <div className="flex-none grid gap-3 sm:grid-cols-2 md:grid-cols-2 md:gap-4">
+              <div className="flex-none grid gap-3 sm:grid-cols-2 lg:grid-cols-3 md:gap-4">
                 <section className="card-panel--strong p-3 sm:p-4 transition-theme">
                   <header className="mb-2">
                     <p className="text-[10px] uppercase tracking-[0.3em] theme-text-muted">Stream status</p>
@@ -1051,6 +1695,13 @@ export default function App() {
                     <h3 className="text-xs font-semibold theme-text-primary">Usage insights</h3>
                   </header>
                   <AnalyticsView selectedModel={selectedModel} onChangeModel={setSelectedModel} modelOptions={modelOptions} modelData={modelData} />
+                </section>
+                <section className="card-panel--strong p-3 sm:p-4 transition-theme">
+                  <header className="mb-2">
+                    <p className="text-[10px] uppercase tracking-[0.3em] theme-text-muted">Task success</p>
+                    <h3 className="text-xs font-semibold theme-text-primary">Health</h3>
+                  </header>
+                  <TaskOutcomeHealthView liveAlertCount={liveAlertCount} scopeJump={healthScopeJump} />
                 </section>
               </div>
             </aside>
@@ -1067,6 +1718,62 @@ export default function App() {
           </div>
         </div>
       </footer>
+      {taskOutcomeAlertToasts.length > 0 && (
+        <div className="pointer-events-none fixed bottom-4 right-4 z-[70] flex w-[min(24rem,calc(100%-2rem))] flex-col gap-2">
+          {taskOutcomeAlertToasts.map((alert) => {
+            const isCritical = String(alert.severity).toLowerCase() === "critical";
+            return (
+              <div
+                key={alert.id}
+                onClick={() => {
+                  setHealthScopeJump({ scope: alert.scopeKey, token: Date.now() });
+                }}
+                title="Click to filter Health by this scope"
+                className={`pointer-events-auto cursor-pointer rounded-lg border px-3 py-2 shadow-md ${
+                  isCritical
+                    ? "border-rose-300 bg-rose-50 text-rose-900"
+                    : "border-amber-300 bg-amber-50 text-amber-900"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.25em]">
+                      {isCritical ? "Critical KPI alert" : "KPI alert"}
+                    </p>
+                    <p className="text-xs font-semibold">{alert.scopeKey}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      dismissTaskOutcomeToast(alert.id);
+                    }}
+                    className="rounded-full border border-current/30 p-1 opacity-80 transition-opacity hover:opacity-100"
+                    aria-label="Dismiss alert"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+                <p className="mt-1 text-xs">{alert.reason}</p>
+                <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                  <div>
+                    <p className="uppercase tracking-widest opacity-70">Value</p>
+                    <p className="font-semibold">{toAlertPercent(alert.value)}</p>
+                  </div>
+                  <div>
+                    <p className="uppercase tracking-widest opacity-70">Threshold</p>
+                    <p className="font-semibold">{toAlertPercent(alert.threshold)}</p>
+                  </div>
+                  <div>
+                    <p className="uppercase tracking-widest opacity-70">Samples</p>
+                    <p className="font-semibold">{alert.sampleCount}</p>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
       <TourOverlay
         open={showTour}
         steps={tourSteps}

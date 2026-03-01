@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import {
   AgentOSChunkType,
   type AgentOSAgencyUpdateChunk,
+  type AgentOSMetadataUpdateChunk,
   type AgentOSWorkflowUpdateChunk,
   type AgentOSToolResultEmissionChunk,
   type AgentOSTextDeltaChunk,
@@ -25,6 +26,7 @@ const chunkAccent: Record<string, string> = {
   [AgentOSChunkType.TOOL_CALL_REQUEST]: "border-amber-400/40 bg-amber-400/10 text-amber-100 dark:text-amber-100",
   [AgentOSChunkType.TOOL_RESULT_EMISSION]: "border-purple-400/40 bg-purple-400/10 text-purple-100 dark:text-purple-100",
   [AgentOSChunkType.ERROR]: "border-rose-500/40 bg-rose-500/10 text-rose-100 dark:text-rose-100",
+  [AgentOSChunkType.METADATA_UPDATE]: "border-cyan-400/60 bg-cyan-50 text-cyan-900 dark:border-cyan-400/40 dark:bg-cyan-400/10 dark:text-cyan-100",
   [AgentOSChunkType.AGENCY_UPDATE]: "border-sky-400/60 bg-sky-50 text-sky-900 dark:border-sky-400/40 dark:bg-sky-400/10 dark:text-sky-100",
   [AgentOSChunkType.WORKFLOW_UPDATE]: "border-indigo-400/60 bg-indigo-50 text-indigo-900 dark:border-indigo-400/40 dark:bg-indigo-400/10 dark:text-indigo-100"
 };
@@ -39,6 +41,223 @@ const seatStatusAccent: Record<string, string> = {
 
 function formatStatus(status: string): string {
   return status.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function asObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function toPercent(value: unknown): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "—";
+  }
+  const clamped = Math.max(0, Math.min(1, value));
+  return `${Math.round(clamped * 100)}%`;
+}
+
+function toScore(value: unknown): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "—";
+  }
+  return value.toFixed(2);
+}
+
+function toCount(value: unknown): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return "—";
+  }
+  return String(Math.max(0, Math.round(value)));
+}
+
+function renderMetadataUpdate(chunk: AgentOSMetadataUpdateChunk) {
+  const updates = asObject(chunk.updates) ?? {};
+  const taskOutcome = asObject(updates.taskOutcome);
+  const taskOutcomeKpi = asObject(updates.taskOutcomeKpi);
+  const taskOutcomeAlert = asObject(updates.taskOutcomeAlert);
+  const turnPlanning = asObject(updates.turnPlanning);
+  const knownKeys = new Set(["taskOutcome", "taskOutcomeKpi", "taskOutcomeAlert", "turnPlanning"]);
+  const extraUpdates = Object.fromEntries(
+    Object.entries(updates).filter(([key]) => !knownKeys.has(key))
+  );
+  const hasExtraUpdates = Object.keys(extraUpdates).length > 0;
+  const planningPolicy = asObject(turnPlanning?.policy);
+  const adaptiveExecution = asObject(turnPlanning?.adaptiveExecution);
+  const adaptiveActions = asObject(adaptiveExecution?.actions);
+
+  const outcomeStatus =
+    typeof taskOutcome?.status === "string" ? taskOutcome.status.toLowerCase() : "unknown";
+  const statusClass =
+    outcomeStatus === "success"
+      ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-200"
+      : outcomeStatus === "partial"
+        ? "bg-amber-500/20 text-amber-700 dark:text-amber-200"
+        : outcomeStatus === "failed"
+          ? "bg-rose-500/20 text-rose-700 dark:text-rose-200"
+          : "bg-slate-500/20 text-slate-700 dark:text-slate-200";
+
+  return (
+    <div className="space-y-3 text-sm leading-relaxed">
+      {(taskOutcome || taskOutcomeKpi || taskOutcomeAlert) && (
+        <p className="text-xs uppercase tracking-[0.35em] text-cyan-700 dark:text-cyan-200">
+          Task Outcome Telemetry
+        </p>
+      )}
+
+      {taskOutcome && (
+        <div className="rounded-lg border border-cyan-200 bg-white/70 px-3 py-2 dark:border-white/10 dark:bg-slate-950/50">
+          <div className="flex items-center justify-between">
+            <span className="text-xs uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">
+              Turn Outcome
+            </span>
+            <span className={clsx("rounded-full px-2 py-0.5 text-[10px] uppercase", statusClass)}>
+              {outcomeStatus}
+            </span>
+          </div>
+          <dl className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-700 dark:text-slate-200">
+            <div>
+              <dt className="uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">Score</dt>
+              <dd>{toScore(taskOutcome.score)}</dd>
+            </div>
+            <div>
+              <dt className="uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">Source</dt>
+              <dd>{typeof taskOutcome.source === "string" ? taskOutcome.source : "heuristic"}</dd>
+            </div>
+          </dl>
+          {typeof taskOutcome.reason === "string" && taskOutcome.reason.trim().length > 0 && (
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">{taskOutcome.reason}</p>
+          )}
+        </div>
+      )}
+
+      {taskOutcomeKpi && (
+        <div className="rounded-lg border border-cyan-200 bg-white/70 px-3 py-2 dark:border-white/10 dark:bg-slate-950/50">
+          <p className="text-xs uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">
+            Rolling KPI
+          </p>
+          <dl className="mt-2 grid gap-2 text-xs text-slate-700 dark:text-slate-200 sm:grid-cols-2">
+            <div>
+              <dt className="uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
+                Weighted Success
+              </dt>
+              <dd>{toPercent(taskOutcomeKpi.weightedSuccessRate)}</dd>
+            </div>
+            <div>
+              <dt className="uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
+                Success Rate
+              </dt>
+              <dd>{toPercent(taskOutcomeKpi.successRate)}</dd>
+            </div>
+            <div>
+              <dt className="uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
+                Sample Count
+              </dt>
+              <dd>{toCount(taskOutcomeKpi.sampleCount)}</dd>
+            </div>
+            <div>
+              <dt className="uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
+                Scope
+              </dt>
+              <dd>{typeof taskOutcomeKpi.scopeKey === "string" ? taskOutcomeKpi.scopeKey : "—"}</dd>
+            </div>
+          </dl>
+        </div>
+      )}
+
+      {taskOutcomeAlert && (
+        <div className="rounded-lg border border-rose-300/70 bg-rose-50/80 px-3 py-2 text-rose-900 dark:border-rose-400/40 dark:bg-rose-500/10 dark:text-rose-100">
+          <div className="mb-1 flex items-center justify-between text-xs uppercase tracking-[0.25em]">
+            <span>KPI Alert</span>
+            <span>
+              {typeof taskOutcomeAlert.severity === "string"
+                ? taskOutcomeAlert.severity
+                : "warning"}
+            </span>
+          </div>
+          <p className="text-xs">
+            {typeof taskOutcomeAlert.reason === "string"
+              ? taskOutcomeAlert.reason
+              : "Task outcome KPI dropped below threshold."}
+          </p>
+          <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+            <div>
+              <span className="block uppercase tracking-[0.25em] opacity-70">Value</span>
+              <span>{toPercent(taskOutcomeAlert.value)}</span>
+            </div>
+            <div>
+              <span className="block uppercase tracking-[0.25em] opacity-70">Threshold</span>
+              <span>{toPercent(taskOutcomeAlert.threshold)}</span>
+            </div>
+            <div>
+              <span className="block uppercase tracking-[0.25em] opacity-70">Samples</span>
+              <span>{toCount(taskOutcomeAlert.sampleCount)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {turnPlanning && (
+        <div className="rounded-lg border border-sky-300/60 bg-sky-50/70 px-3 py-2 dark:border-sky-400/40 dark:bg-sky-500/10">
+          <p className="text-xs uppercase tracking-[0.3em] text-sky-700 dark:text-sky-200">
+            Turn Planning (Stream Payload)
+          </p>
+          <dl className="mt-2 grid gap-2 text-xs text-slate-700 dark:text-slate-200 sm:grid-cols-2">
+            <div>
+              <dt className="uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
+                Tool Failure Mode
+              </dt>
+              <dd>
+                {typeof planningPolicy?.toolFailureMode === "string"
+                  ? planningPolicy.toolFailureMode
+                  : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
+                Tool Selection Mode
+              </dt>
+              <dd>
+                {typeof planningPolicy?.toolSelectionMode === "string"
+                  ? planningPolicy.toolSelectionMode
+                  : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
+                Adaptive Applied
+              </dt>
+              <dd>{adaptiveExecution?.applied === true ? "yes" : "no"}</dd>
+            </div>
+            <div>
+              <dt className="uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
+                Forced Fail Open
+              </dt>
+              <dd>{adaptiveActions?.forcedToolFailureMode === true ? "yes" : "no"}</dd>
+            </div>
+          </dl>
+          {typeof adaptiveExecution?.reason === "string" && adaptiveExecution.reason.trim().length > 0 && (
+            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">{adaptiveExecution.reason}</p>
+          )}
+        </div>
+      )}
+
+      {hasExtraUpdates && (
+        <details className="rounded-lg border border-cyan-200 bg-white/60 p-2 text-xs dark:border-white/10 dark:bg-slate-950/40">
+          <summary className="cursor-pointer select-none text-slate-600 dark:text-slate-300">
+            Additional metadata
+          </summary>
+          <pre className="mt-2 max-h-56 overflow-auto whitespace-pre-wrap break-words">
+            {JSON.stringify(extraUpdates, null, 2)}
+          </pre>
+        </details>
+      )}
+
+      {!taskOutcome && !taskOutcomeKpi && !taskOutcomeAlert && !turnPlanning && !hasExtraUpdates && (
+        <p className="text-xs text-slate-600 dark:text-slate-300">Metadata update received.</p>
+      )}
+    </div>
+  );
 }
 
 function renderWorkflowUpdate(chunk: AgentOSWorkflowUpdateChunk) {
@@ -206,6 +425,10 @@ function renderEventBody(type: AgentOSChunkType | "log", payload: unknown): Reac
         </div>
       </div>
     );
+  }
+
+  if (type === AgentOSChunkType.METADATA_UPDATE) {
+    return renderMetadataUpdate(payload as AgentOSMetadataUpdateChunk);
   }
 
   // Don't render individual FINAL_RESPONSE events - they're aggregated into assistant messages

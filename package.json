@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "test": "node --test --import tsx src/lib/taskOutcomeHealthFilters.test.ts",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --max-warnings=0",
     "e2e": "playwright test",
     "e2e:report": "playwright show-report",

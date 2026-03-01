@@ -209,7 +209,7 @@ function PlanStepItem({ step, index }: { step: PlanStep; index: number }) {
             </div>
           )}
           {step.error && <div className="text-red-500 p-2 bg-red-500/10 rounded">{step.error}</div>}
-          {step.output && (
+          {step.output !== undefined && step.output !== null && (
             <div className="p-2 bg-[var(--color-bg-secondary)] rounded">
               <pre className="text-xs overflow-auto max-h-32">{JSON.stringify(step.output, null, 2)}</pre>
             </div>
@@ -398,6 +398,5 @@ export function PlanningDashboard() {
     </div>
   );
 }
-
 
 

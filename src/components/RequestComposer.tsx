@@ -51,7 +51,7 @@ export function RequestComposer({ onSubmit, disabled = false }: RequestComposerP
   const requestSchema = useMemo(() => createRequestSchema(t), [t]);
 
   const form = useForm<RequestComposerPayload>({
-    resolver: zodResolver(requestSchema),
+    resolver: zodResolver(requestSchema as any) as any,
     defaultValues: {
       input: examplePrompts[0] || samplePrompt || "Hi"
     }

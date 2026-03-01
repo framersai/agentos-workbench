@@ -8,13 +8,22 @@ type TabsContextValue = {
 const TabsContext = createContext<TabsContextValue | null>(null);
 
 type TabsProps = React.PropsWithChildren<{
-	defaultValue: string;
+	defaultValue?: string;
+	value?: string;
+	onValueChange?: (value: string) => void;
 	className?: string;
 }>;
 
-export function Tabs({ defaultValue, className, children }: TabsProps) {
-	const [active, setActive] = useState(defaultValue);
-	const ctx = useMemo(() => ({ active, setActive }), [active]);
+function TabsRoot({ defaultValue, value, onValueChange, className, children }: TabsProps) {
+	const [internalActive, setInternalActive] = useState(defaultValue ?? '');
+	const active = typeof value === 'string' ? value : internalActive;
+	const setActive = (nextValue: string) => {
+		if (typeof value !== 'string') {
+			setInternalActive(nextValue);
+		}
+		onValueChange?.(nextValue);
+	};
+	const ctx = useMemo(() => ({ active, setActive }), [active, onValueChange]);
 	return (
 		<div className={className}>
 			<TabsContext.Provider value={ctx}>{children}</TabsContext.Provider>
@@ -55,4 +64,15 @@ export function TabsContent({ value, className, children }: TabsContentProps) {
 	return <div className={className}>{children}</div>;
 }
 
+type TabsComponent = React.FC<TabsProps> & {
+	List: typeof TabsList;
+	Trigger: typeof TabsTrigger;
+	Content: typeof TabsContent;
+};
+
+export const Tabs = Object.assign(TabsRoot, {
+	List: TabsList,
+	Trigger: TabsTrigger,
+	Content: TabsContent,
+}) as TabsComponent;
 

@@ -44,6 +44,43 @@ export interface ToolCallRequestShape {
   arguments: Record<string, unknown>;
 }
 
+export interface AgentOSTaskOutcomeMetadata {
+  status: "success" | "partial" | "failed";
+  score: number;
+  reason?: string;
+  source?: "heuristic" | "request_override" | string;
+}
+
+export interface AgentOSTaskOutcomeKpiSummary {
+  scopeKey: string;
+  scopeMode: "global" | "organization" | "user" | "session" | string;
+  windowSize: number;
+  sampleCount: number;
+  successCount: number;
+  partialCount: number;
+  failedCount: number;
+  successRate: number;
+  averageScore: number;
+  weightedSuccessRate: number;
+  timestamp: string;
+}
+
+export interface AgentOSTaskOutcomeAlert {
+  scopeKey: string;
+  severity: "warning" | "critical" | string;
+  reason: string;
+  threshold: number;
+  value: number;
+  sampleCount: number;
+  timestamp: string;
+}
+
+export interface AgentOSMetadataUpdates extends Record<string, unknown> {
+  taskOutcome?: AgentOSTaskOutcomeMetadata;
+  taskOutcomeKpi?: AgentOSTaskOutcomeKpiSummary;
+  taskOutcomeAlert?: AgentOSTaskOutcomeAlert;
+}
+
 export interface AgentOSTextDeltaChunk extends AgentOSBaseChunk {
   type: AgentOSChunkType.TEXT_DELTA;
   textDelta: string;
@@ -130,7 +167,7 @@ export interface AgentOSAgencyUpdateChunk extends AgentOSBaseChunk {
 
 export interface AgentOSMetadataUpdateChunk extends AgentOSBaseChunk {
   type: AgentOSChunkType.METADATA_UPDATE;
-  updates: Record<string, unknown>;
+  updates: AgentOSMetadataUpdates;
 }
 
 /**
@@ -192,4 +229,3 @@ export type AgentOSResponse =
   | AgentOSAgencyUpdateChunk
   | AgentOSRagRetrievalChunk
   | AgentOSRagIngestionChunk;
-

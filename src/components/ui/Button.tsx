@@ -1,7 +1,16 @@
 import React from 'react';
 import { clsx } from 'clsx';
 
-type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'success' | 'warning' | 'danger';
+type ButtonVariant =
+	| 'primary'
+	| 'default'
+	| 'secondary'
+	| 'outline'
+	| 'success'
+	| 'warning'
+	| 'danger'
+	| 'destructive'
+	| 'ghost';
 type ButtonSize = 'sm' | 'md' | 'xs' | 'lg';
 
 /**
@@ -29,11 +38,14 @@ type ButtonProps = React.PropsWithChildren<{
 
 const variantClasses: Record<ButtonVariant, string> = {
 	primary: 'theme-bg-accent theme-text-on-accent shadow-lg shadow-[color:rgba(0,0,0,0.1)] hover:opacity-95',
+	default: 'theme-bg-accent theme-text-on-accent shadow-lg shadow-[color:rgba(0,0,0,0.1)] hover:opacity-95',
 	secondary: 'border theme-border theme-bg-secondary theme-text-primary hover:opacity-95',
 	outline: 'border theme-border bg-transparent theme-text-primary hover:bg-[color:var(--color-background-secondary)]/60',
 	success: 'theme-bg-success theme-text-on-accent hover:opacity-95',
 	warning: 'theme-bg-warning theme-text-on-accent hover:opacity-95',
 	danger: 'bg-red-600 text-white hover:bg-red-700',
+	destructive: 'bg-red-600 text-white hover:bg-red-700',
+	ghost: 'bg-transparent theme-text-primary hover:bg-[color:var(--color-background-secondary)]',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {
@@ -96,5 +108,4 @@ export function Button({
 		</button>
 	);
 }
-
 
