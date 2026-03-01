@@ -30,6 +30,8 @@ Benefits:
 - Sidebar session switcher backed by a lightweight zustand store
 - Timeline inspector that renders streaming @framers/agentos chunks with color-coded context
 - Request composer for prototyping turns or replaying transcripts (wire it to your backend when ready)
+- Adaptive execution dashboard (task-outcome KPI, fail-open overrides, tool-exposure recovery state)
+- Multi-tenant telemetry slices (scope + routing mode visibility for single-tenant and multi-tenant runs)
 - Dark, neon-drenched UI that matches the Frame.dev production command centre
 
 ## Scripts
