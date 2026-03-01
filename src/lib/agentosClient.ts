@@ -123,6 +123,7 @@ export interface TaskOutcomeRuntimeConfigResponse {
     discovery?: {
       enabled?: boolean;
       defaultToolSelectionMode?: "all" | "discovered";
+      recallProfile?: "aggressive" | "balanced" | "precision";
       onlyAvailable?: boolean;
       includePromptContext?: boolean;
       maxRetries?: number;

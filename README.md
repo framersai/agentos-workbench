@@ -32,6 +32,7 @@ Benefits:
 - Request composer for prototyping turns or replaying transcripts (wire it to your backend when ready)
 - Adaptive execution dashboard (task-outcome KPI, fail-open overrides, tool-exposure recovery state)
 - Multi-tenant telemetry slices (scope + routing mode visibility for single-tenant and multi-tenant runs)
+- Discovery telemetry visibility (default tool-selection mode + recall profile from runtime config/stream payload)
 - Dark, neon-drenched UI that matches the Frame.dev production command centre
 
 ## Scripts

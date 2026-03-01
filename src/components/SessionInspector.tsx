@@ -225,6 +225,16 @@ function renderMetadataUpdate(chunk: AgentOSMetadataUpdateChunk) {
             </div>
             <div>
               <dt className="uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
+                Discovery Recall
+              </dt>
+              <dd>
+                {typeof planningPolicy?.recallProfile === "string"
+                  ? planningPolicy.recallProfile
+                  : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
                 Adaptive Applied
               </dt>
               <dd>{adaptiveExecution?.applied === true ? "yes" : "no"}</dd>

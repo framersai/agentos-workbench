@@ -406,6 +406,18 @@ function TaskOutcomeHealthView({
         </span>
       </div>
       <div className="flex items-center justify-between">
+        <span>Discovery selection</span>
+        <span className="font-semibold theme-text-primary">
+          {config?.turnPlanning.discovery?.defaultToolSelectionMode ?? "discovered"}
+        </span>
+      </div>
+      <div className="flex items-center justify-between">
+        <span>Discovery recall</span>
+        <span className="font-semibold theme-text-primary">
+          {config?.turnPlanning.discovery?.recallProfile ?? "aggressive"}
+        </span>
+      </div>
+      <div className="flex items-center justify-between">
         <span>Adaptive force fail-open</span>
         <span className="font-semibold theme-text-primary">
           {config?.adaptiveExecution.forceFailOpenWhenDegraded !== false ? "on" : "off"}
