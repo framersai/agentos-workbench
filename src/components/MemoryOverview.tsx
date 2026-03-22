@@ -98,9 +98,27 @@ export function MemoryOverview() {
   const tokenPct  = Math.min(tokens / maxTokens, 1);
   const summary   = (working?.rollingSummary as string | undefined) ?? '';
 
+  /**
+   * Whether the backend is serving live data from the AgentOS runtime
+   * or falling back to mock demonstration data.
+   */
+  const isConnected = Boolean(stats?.connected) || Boolean(working?.connected);
+
   return (
     <div className="flex flex-col gap-4">
-      {/* 2×2 summary grid */}
+      {/* Data source badge */}
+      <div className="flex items-center gap-2">
+        <span
+          className={`inline-block h-2 w-2 rounded-full ${
+            isConnected ? 'bg-emerald-500' : 'bg-amber-400'
+          }`}
+        />
+        <span className="text-xs font-medium theme-text-secondary">
+          {isConnected ? 'Live Data' : 'Mock Data'}
+        </span>
+      </div>
+
+      {/* 2x2 summary grid */}
       <div className="grid grid-cols-2 gap-3">
         <TierCard
           icon={<Brain size={16} />}

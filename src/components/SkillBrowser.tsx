@@ -21,25 +21,6 @@ import {
 import { SkillCard } from './SkillCard';
 import { SkillDetail as SkillDetailView } from './SkillDetail';
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
-
-/** Ordered list of filter categories shown in the dropdown. */
-const CATEGORY_OPTIONS = [
-  { value: '',            label: 'All categories' },
-  { value: 'information', label: 'Information'    },
-  { value: 'coding',      label: 'Coding'         },
-  { value: 'security',    label: 'Security'       },
-  { value: 'voice',       label: 'Voice'          },
-  { value: 'social',      label: 'Social'         },
-  { value: 'media',       label: 'Media'          },
-];
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
 /**
  * SkillBrowser renders either:
  * - A searchable, filterable grid of {@link SkillCard}s, or
@@ -159,6 +140,15 @@ export function SkillBrowser() {
   });
 
   const activeCount = skills.filter((s) => s.enabled).length;
+  const categoryOptions = [
+    { value: '', label: 'All categories' },
+    ...Array.from(new Set(skills.map((skill) => skill.category)))
+      .sort((left, right) => left.localeCompare(right))
+      .map((value) => ({
+        value,
+        label: value.replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+      })),
+  ];
 
   // -------------------------------------------------------------------------
   // Render — detail view
@@ -168,10 +158,23 @@ export function SkillBrowser() {
     return (
       <div className="min-h-[200px]">
         {detailLoading || !skillDetail ? (
-          <div className="flex items-center gap-2 py-6 text-xs theme-text-muted">
-            <span className="animate-spin inline-block h-3 w-3 rounded-full border border-t-sky-400" />
-            Loading skill…
-          </div>
+          skillDetail === null && !detailLoading ? (
+            <div className="space-y-3 py-6">
+              <p className="text-xs theme-text-muted">This skill could not be loaded.</p>
+              <button
+                type="button"
+                onClick={() => setSelectedSkillName(null)}
+                className="rounded-full border theme-border px-3 py-1 text-xs theme-text-secondary"
+              >
+                Back to skills
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 py-6 text-xs theme-text-muted">
+              <span className="animate-spin inline-block h-3 w-3 rounded-full border border-t-sky-400" />
+              Loading skill…
+            </div>
+          )
         ) : (
           <SkillDetailView
             skill={skillDetail}
@@ -218,7 +221,7 @@ export function SkillBrowser() {
           ].join(' ')}
           aria-label="Filter by category"
         >
-          {CATEGORY_OPTIONS.map(({ value, label }) => (
+          {categoryOptions.map(({ value, label }) => (
             <option key={value} value={value}>
               {label}
             </option>

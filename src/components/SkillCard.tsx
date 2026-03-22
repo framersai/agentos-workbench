@@ -39,10 +39,18 @@ interface SkillCardProps {
  */
 const CATEGORY_COLOURS: Record<string, string> = {
   information: 'bg-sky-500/20 text-sky-400',
-  coding:      'bg-violet-500/20 text-violet-400',
+  communication:'bg-amber-500/20 text-amber-300',
+  content:     'bg-orange-500/20 text-orange-300',
+  creative:    'bg-pink-500/20 text-pink-300',
+  'developer-tools': 'bg-violet-500/20 text-violet-400',
+  devops:      'bg-cyan-500/20 text-cyan-300',
+  infrastructure: 'bg-cyan-500/20 text-cyan-300',
+  research:    'bg-indigo-500/20 text-indigo-300',
   security:    'bg-rose-500/20 text-rose-400',
-  voice:       'bg-amber-500/20 text-amber-400',
-  social:      'bg-green-500/20 text-green-400',
+  productivity:'bg-emerald-500/20 text-emerald-300',
+  marketing:   'bg-lime-500/20 text-lime-300',
+  automation:  'bg-teal-500/20 text-teal-300',
+  'social-automation': 'bg-green-500/20 text-green-400',
   media:       'bg-pink-500/20 text-pink-400',
 };
 
@@ -78,9 +86,9 @@ export function SkillCard({ skill, onToggle, onSelect }: SkillCardProps) {
 
   /** Whether an env var indicator is needed and already set (green) or
    *  expected but user must supply it (yellow). */
-  const envDot = skill.primaryEnv === null
+  const envDot = skill.requiredEnvVars.length === 0
     ? { colour: 'bg-emerald-400', title: 'No external credentials required' }
-    : { colour: 'bg-amber-400', title: `Requires env var: ${skill.primaryEnv}` };
+    : { colour: 'bg-amber-400', title: `Requires env vars: ${skill.requiredEnvVars.join(', ')}` };
 
   return (
     <div
@@ -104,22 +112,37 @@ export function SkillCard({ skill, onToggle, onSelect }: SkillCardProps) {
         <span className="text-lg leading-none" aria-hidden="true">
           {skill.emoji}
         </span>
-        <span className="text-xs font-semibold theme-text-primary truncate">
-          {skill.name}
-        </span>
+        <div className="min-w-0">
+          <span className="block truncate text-xs font-semibold theme-text-primary">
+            {skill.displayName}
+          </span>
+          <span className="block truncate text-[10px] font-mono theme-text-muted">
+            {skill.name}
+          </span>
+        </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
       {/* Category badge                                                      */}
       {/* ------------------------------------------------------------------ */}
-      <span
-        className={[
-          'inline-block self-start rounded-full px-2 py-0.5 text-[10px] font-medium',
-          categoryColour,
-        ].join(' ')}
-      >
-        {skill.category}
-      </span>
+      <div className="flex flex-wrap gap-1">
+        <span
+          className={[
+            'inline-block self-start rounded-full px-2 py-0.5 text-[10px] font-medium',
+            categoryColour,
+          ].join(' ')}
+        >
+          {skill.category}
+        </span>
+        {skill.verified && (
+          <span className="inline-block self-start rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-medium text-sky-300">
+            verified
+          </span>
+        )}
+        <span className="inline-block self-start rounded-full bg-white/5 px-2 py-0.5 text-[10px] font-medium theme-text-muted">
+          {skill.source}
+        </span>
+      </div>
 
       {/* ------------------------------------------------------------------ */}
       {/* Description                                                         */}
@@ -144,6 +167,19 @@ export function SkillCard({ skill, onToggle, onSelect }: SkillCardProps) {
         </div>
       )}
 
+      {skill.requiredBins.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {skill.requiredBins.map((bin) => (
+            <span
+              key={bin}
+              className="rounded-sm bg-white/5 px-1.5 py-0.5 text-[10px] font-mono text-cyan-300"
+            >
+              {bin}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* ------------------------------------------------------------------ */}
       {/* Footer: env indicator + toggle                                      */}
       {/* ------------------------------------------------------------------ */}
@@ -157,7 +193,7 @@ export function SkillCard({ skill, onToggle, onSelect }: SkillCardProps) {
             className={`inline-block h-1.5 w-1.5 rounded-full ${envDot.colour}`}
             aria-hidden="true"
           />
-          {skill.primaryEnv ?? 'no env required'}
+          {skill.requiredEnvVars[0] ?? skill.primaryEnv ?? 'no env required'}
         </span>
 
         {/* Toggle switch — stop propagation so card click doesn't also fire */}

@@ -1,14 +1,65 @@
 import { FastifyInstance } from 'fastify';
 import { getAgentOS } from '../lib/agentos';
 import {
-  mockExtensions,
-  mockTools,
   mockModels,
   mockExecutions
 } from '../mockData';
+import {
+  listGuardrailExtensions,
+  listWorkbenchExtensions,
+  listWorkbenchTools,
+} from '../lib/registryCatalog';
 
 const TEXT_DELTA_CHUNK_TYPE = 'text_delta';
 const ERROR_CHUNK_TYPE = 'error';
+const GUARDRAIL_PACK_ORDER = [
+  'pii-redaction',
+  'ml-classifiers',
+  'topicality',
+  'code-safety',
+  'grounding-guard',
+] as const;
+
+type GuardrailPackId = typeof GUARDRAIL_PACK_ORDER[number];
+type GuardrailTier = 'dangerous' | 'permissive' | 'balanced' | 'strict' | 'paranoid';
+
+const TIER_GUARDRAIL_DEFAULTS: Record<GuardrailTier, Record<GuardrailPackId, boolean>> = {
+  dangerous: {
+    'pii-redaction': false,
+    'ml-classifiers': false,
+    topicality: false,
+    'code-safety': false,
+    'grounding-guard': false,
+  },
+  permissive: {
+    'pii-redaction': false,
+    'ml-classifiers': false,
+    topicality: false,
+    'code-safety': true,
+    'grounding-guard': false,
+  },
+  balanced: {
+    'pii-redaction': true,
+    'ml-classifiers': false,
+    topicality: false,
+    'code-safety': true,
+    'grounding-guard': false,
+  },
+  strict: {
+    'pii-redaction': true,
+    'ml-classifiers': true,
+    topicality: false,
+    'code-safety': true,
+    'grounding-guard': false,
+  },
+  paranoid: {
+    'pii-redaction': true,
+    'ml-classifiers': true,
+    topicality: true,
+    'code-safety': true,
+    'grounding-guard': true,
+  },
+};
 
 /**
  * Registers AgentOS routes.
@@ -175,6 +226,51 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
     return { personas };
   });
 
+  fastify.get<{ Params: { conversationId: string }; Querystring: { userId?: string } }>('/conversations/:conversationId', {
+    schema: {
+      description: 'Get conversation history for a conversation id',
+      tags: ['AgentOS'],
+      params: {
+        type: 'object',
+        properties: {
+          conversationId: { type: 'string' },
+        },
+        required: ['conversationId'],
+      },
+      querystring: {
+        type: 'object',
+        properties: {
+          userId: { type: 'string' },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          additionalProperties: true,
+          properties: {
+            conversation: { type: ['object', 'null'], additionalProperties: true },
+          },
+        },
+      },
+    },
+  }, async (request, reply) => {
+    const agentos = await getAgentOS();
+    const getConversationHistory = (agentos as unknown as {
+      getConversationHistory?: (conversationId: string, userId: string) => Promise<unknown>;
+    }).getConversationHistory;
+
+    if (typeof getConversationHistory !== 'function') {
+      return { conversation: null, unsupported: true };
+    }
+
+    const conversation = await getConversationHistory(
+      request.params.conversationId,
+      request.query.userId || 'agentos-workbench-user'
+    );
+
+    return { conversation };
+  });
+
   /**
    * List workflow definitions.
    */
@@ -305,6 +401,7 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
           type: 'array',
           items: {
             type: 'object',
+            additionalProperties: true,
             properties: {
               id: { type: 'string' },
               name: { type: 'string' },
@@ -321,7 +418,7 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
       }
     }
   }, async () => {
-    return mockExtensions;
+    return listWorkbenchExtensions();
   });
 
   /**
@@ -336,6 +433,7 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
           type: 'array',
           items: {
             type: 'object',
+            additionalProperties: true,
             properties: {
               id: { type: 'string' },
               name: { type: 'string' },
@@ -348,48 +446,112 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
       }
     }
   }, async () => {
-    return mockTools;
+    return listWorkbenchTools();
   });
 
   /**
+   * In-memory set tracking which extensions have been "installed" in the
+   * current workbench session.  In standalone mode there is no real npm
+   * install — this set simulates the installed state so the UI can toggle
+   * extensions on/off within a single session.
+   */
+  const sessionInstalledExtensions = new Set<string>();
+
+  /**
    * Install extension.
+   *
+   * In connected mode this would delegate to the AgentOS extension loader
+   * (`npm install @framers/agentos-ext-{name}` or dynamic import).  In
+   * standalone mode the install is simulated — the extension id is tracked
+   * in an in-memory set so subsequent list calls reflect the new state.
+   *
+   * The response includes a `mode` field ('standalone' | 'connected') so
+   * the frontend can display appropriate messaging about the install scope.
    */
   fastify.post('/extensions/install', {
     schema: {
-      description: 'Install a new extension',
+      description: 'Install an extension (simulated in standalone mode, real in connected mode)',
       tags: ['AgentOS'],
       body: {
         type: 'object',
         properties: {
-          extensionId: { type: 'string' }
+          extensionId: { type: 'string' },
+          package: { type: 'string' },
         },
-        required: ['extensionId']
       },
       response: {
         200: {
           type: 'object',
           properties: {
-            success: { type: 'boolean' }
+            success: { type: 'boolean' },
+            installed: { type: 'boolean' },
+            mode: { type: 'string' },
+            message: { type: 'string' },
           }
         }
       }
     }
-  }, async () => {
-    return { success: true };
+  }, async (request) => {
+    const body = request.body as { extensionId?: string; package?: string };
+    const extensions = await listWorkbenchExtensions();
+    const extension = extensions.find((entry) =>
+      entry.id === body.extensionId ||
+      entry.package === body.package
+    );
+
+    if (!extension) {
+      return { success: false, installed: false, mode: 'standalone', message: 'Extension not found in registry.' };
+    }
+
+    // Attempt real runtime integration — check if the AgentOS instance has
+    // an extension loader we can delegate to.
+    try {
+      const agentos = await getAgentOS();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const extensionManager = (agentos as any).extensionManager;
+      if (extensionManager && typeof extensionManager.loadExtension === 'function') {
+        await extensionManager.loadExtension(extension.package);
+        return {
+          success: true,
+          installed: true,
+          mode: 'connected',
+          message: `Extension ${extension.name} loaded via AgentOS runtime.`,
+        };
+      }
+    } catch {
+      // Runtime not available or extension manager not exposed — fall through
+    }
+
+    // Standalone fallback: track install in session memory
+    sessionInstalledExtensions.add(extension.id);
+    return {
+      success: true,
+      installed: extension.installed || sessionInstalledExtensions.has(extension.id),
+      mode: 'standalone',
+      message: `Extension ${extension.name} marked as installed (simulated — standalone mode).`,
+    };
   });
 
   /**
    * Execute tool.
+   *
+   * Attempts to delegate to the real AgentOS ToolOrchestrator.processToolCall()
+   * when the runtime is available and the tool is registered.  Falls back to a
+   * stub response in standalone mode.
+   *
+   * The response includes a `mode` field ('standalone' | 'connected') so the
+   * frontend can distinguish between real and simulated execution results.
    */
   fastify.post('/tools/execute', {
     schema: {
-      description: 'Execute a specific tool',
+      description: 'Execute a specific tool via the AgentOS runtime or return a stub in standalone mode',
       tags: ['AgentOS'],
       body: {
         type: 'object',
         properties: {
           toolId: { type: 'string' },
-          params: { type: 'object', additionalProperties: true }
+          params: { type: 'object', additionalProperties: true },
+          input: { type: 'object', additionalProperties: true },
         },
         required: ['toolId']
       },
@@ -397,13 +559,57 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
         200: {
           type: 'object',
           properties: {
-            result: { type: 'string' }
+            result: {},
+            toolId: { type: 'string' },
+            mode: { type: 'string' },
+            isError: { type: 'boolean' },
+            echoedInput: { type: 'object', additionalProperties: true },
           }
         }
       }
     }
-  }, async () => {
-    return { result: 'Tool execution result' };
+  }, async (request) => {
+    const body = request.body as { toolId: string; params?: Record<string, unknown>; input?: Record<string, unknown> };
+    const args = body.input ?? body.params ?? {};
+
+    // Attempt real tool execution via the AgentOS ToolOrchestrator
+    try {
+      const agentos = await getAgentOS();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toolOrchestrator = (agentos as any).toolOrchestrator;
+      if (toolOrchestrator && typeof toolOrchestrator.processToolCall === 'function') {
+        const result = await toolOrchestrator.processToolCall({
+          toolCallRequest: {
+            id: `workbench-${Date.now()}`,
+            name: body.toolId,
+            arguments: args,
+          },
+          gmiId: 'workbench',
+          personaId: 'default',
+          personaCapabilities: {},
+          userContext: { userId: 'workbench-user' },
+        });
+
+        return {
+          result: result.output ?? result.errorDetails?.message ?? null,
+          toolId: body.toolId,
+          mode: 'connected',
+          isError: Boolean(result.isError),
+          echoedInput: args,
+        };
+      }
+    } catch {
+      // Runtime not available or tool orchestrator not exposed — fall through
+    }
+
+    // Standalone fallback
+    return {
+      result: 'Tool execution is stubbed in standalone mode.  Connect an AgentOS runtime with registered tools to enable live execution.',
+      toolId: body.toolId,
+      mode: 'standalone',
+      isError: false,
+      echoedInput: args,
+    };
   });
 
   /**
@@ -485,24 +691,9 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
    * Persisted only for the lifetime of the process; a real implementation
    * would back this with a database row.
    */
-  let guardrailConfig: {
-    tier: string;
-    packs: Array<{
-      id: string;
-      name: string;
-      description: string;
-      installed: boolean;
-      enabled: boolean;
-    }>;
-  } = {
-    tier: 'balanced',
-    packs: [
-      { id: 'pii-redaction',  name: 'PII Redaction',  description: 'Detect and redact personal info',                         installed: false, enabled: true  },
-      { id: 'ml-classifiers', name: 'ML Classifiers', description: 'Toxicity, injection, jailbreak via ONNX BERT',             installed: false, enabled: false },
-      { id: 'topicality',     name: 'Topicality',     description: 'Embedding-based topic enforcement + drift detection',      installed: false, enabled: false },
-      { id: 'code-safety',    name: 'Code Safety',    description: 'OWASP Top 10 code scanning (25 regex rules)',              installed: false, enabled: true  },
-      { id: 'grounding-guard',name: 'Grounding Guard',description: 'RAG-grounded hallucination detection via NLI',             installed: false, enabled: false },
-    ],
+  let guardrailTier: GuardrailTier = 'balanced';
+  let guardrailPackState: Record<GuardrailPackId, boolean> = {
+    ...TIER_GUARDRAIL_DEFAULTS.balanced,
   };
 
   /**
@@ -524,9 +715,11 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
                 properties: {
                   id:          { type: 'string' },
                   name:        { type: 'string' },
+                  package:     { type: 'string' },
                   description: { type: 'string' },
                   installed:   { type: 'boolean' },
                   enabled:     { type: 'boolean' },
+                  verified:    { type: 'boolean' },
                 },
               },
             },
@@ -534,7 +727,26 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
         },
       },
     },
-  }, async () => guardrailConfig);
+  }, async () => {
+    const extensions = await listGuardrailExtensions();
+    const packs = GUARDRAIL_PACK_ORDER.map((packId) => {
+      const extension = extensions.find((entry) => entry.package.endsWith(packId));
+      return {
+        id: packId,
+        package: extension?.package ?? `@framers/agentos-ext-${packId}`,
+        name: extension?.name ?? packId,
+        description: extension?.description ?? '',
+        installed: extension?.installed ?? false,
+        enabled: guardrailPackState[packId],
+        verified: extension?.verified ?? false,
+      };
+    });
+
+    return {
+      tier: guardrailTier,
+      packs,
+    };
+  });
 
   /**
    * POST /guardrails/configure — update the active tier and/or individual pack
@@ -567,19 +779,22 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
       },
     },
   }, async (req) => {
-    const body = req.body as { tier?: string; packs?: Record<string, boolean> };
+    const body = req.body as { tier?: GuardrailTier; packs?: Record<string, boolean> };
 
-    if (body.tier) {
-      guardrailConfig.tier = body.tier;
+    if (body.tier && body.tier in TIER_GUARDRAIL_DEFAULTS) {
+      guardrailTier = body.tier;
+      if (!body.packs) {
+        guardrailPackState = { ...TIER_GUARDRAIL_DEFAULTS[body.tier] };
+      }
     }
 
     if (body.packs) {
-      for (const pack of guardrailConfig.packs) {
+      for (const packId of GUARDRAIL_PACK_ORDER) {
         // Convert kebab-case id to camelCase to look up the incoming key.
         // e.g. "pii-redaction" → "piiRedaction"
-        const camelKey = pack.id.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+        const camelKey = packId.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
         if (camelKey in body.packs) {
-          pack.enabled = body.packs[camelKey];
+          guardrailPackState[packId] = body.packs[camelKey];
         }
       }
     }

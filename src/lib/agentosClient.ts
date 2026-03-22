@@ -2,7 +2,7 @@ import type { AgentOSResponse } from "@/types/agentos";
 import type { PersonaDefinition } from "@/state/sessionStore";
 import type { WorkflowDefinition } from "@/types/workflow";
 
-interface Extension {
+export interface ExtensionInfo {
   id: string;
   name: string;
   package: string;
@@ -10,15 +10,40 @@ interface Extension {
   description: string;
   category: string;
   verified?: boolean;
+  verifiedAt?: string;
+  verificationChecklistVersion?: string;
   installed?: boolean;
   tools?: string[];
+  features?: string[];
+  keywords?: string[];
+  requiredSecrets?: string[];
+  requiredEnvVars?: string[];
+  platforms?: string[];
+  configuration?: Record<string, unknown>;
+  manifestEntries?: Array<{
+    id: string;
+    kind?: string;
+    displayName?: string;
+    description?: string;
+  }>;
+  author?: {
+    name?: string;
+    email?: string;
+    url?: string;
+  };
+  npm?: string;
+  repository?: string;
+  path?: string;
 }
 
-interface Tool {
+export interface ExtensionToolInfo {
   id: string;
   name: string;
   description: string;
   extension: string;
+  extensionPackage?: string;
+  category?: string;
+  kind?: string;
   inputSchema?: Record<string, unknown>;
   outputSchema?: Record<string, unknown>;
   hasSideEffects?: boolean;
@@ -512,7 +537,7 @@ class AgentOSClient {
   // New Extension Methods
 
 	/** List extensions from backend registry. */
-  async getExtensions(): Promise<Extension[]> {
+  async getExtensions(): Promise<ExtensionInfo[]> {
     const response = await fetch(`${this.baseUrl}/api/agentos/extensions`);
     if (!response.ok) {
       throw new Error('Failed to fetch extensions');
@@ -523,7 +548,7 @@ class AgentOSClient {
   }
 
 	/** List tools derived from installed/available extensions. */
-  async getAvailableTools(): Promise<Tool[]> {
+  async getAvailableTools(): Promise<ExtensionToolInfo[]> {
     const response = await fetch(`${this.baseUrl}/api/agentos/extensions/tools`);
     if (!response.ok) {
       throw new Error('Failed to fetch available tools');
@@ -781,13 +806,40 @@ class AgentOSClient {
   // If WebSocket support is needed in the future, add socket.io-client back
   // and use dynamic imports to avoid Node.js module issues
 
-	/** Fetch curated/community guardrails from backend registry. */
-	async getGuardrails(): Promise<GuardrailDescriptor[]> {
+	/** Fetch current guardrail tier and registry-backed pack metadata. */
+	async getGuardrails(): Promise<GuardrailConfigResponse> {
 		const response = await fetch(`${this.baseUrl}/api/agentos/guardrails`);
 		if (!response.ok) throw new Error('Failed to fetch guardrails');
-		const data = await response.json();
-		return Array.isArray(data) ? (data as GuardrailDescriptor[]) : [];
+		return response.json() as Promise<GuardrailConfigResponse>;
 	}
+
+  async configureGuardrails(config: {
+    tier?: GuardrailTier;
+    packs?: Record<string, boolean>;
+  }): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/api/agentos/guardrails/configure`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(config),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to configure guardrails');
+    }
+  }
+
+  async getConversationHistory(conversationId: string, userId = 'agentos-workbench-user'): Promise<ConversationHistoryResponse> {
+    const params = new URLSearchParams({ userId });
+    const response = await fetch(
+      `${this.baseUrl}/api/agentos/conversations/${encodeURIComponent(conversationId)}?${params.toString()}`
+    );
+    if (!response.ok) {
+      throw new Error('Failed to fetch conversation history');
+    }
+    return response.json() as Promise<ConversationHistoryResponse>;
+  }
 }
 
 export const agentosClient = new AgentOSClient();
@@ -807,6 +859,9 @@ export const getExtensions = agentosClient.getExtensions.bind(agentosClient);
 export const getAvailableTools = agentosClient.getAvailableTools.bind(agentosClient);
 export const installExtension = agentosClient.installExtension.bind(agentosClient);
 export const executeTool = agentosClient.executeTool.bind(agentosClient);
+export const getGuardrails = agentosClient.getGuardrails.bind(agentosClient);
+export const configureGuardrails = agentosClient.configureGuardrails.bind(agentosClient);
+export const getConversationHistory = agentosClient.getConversationHistory.bind(agentosClient);
 export const startAgencyWorkflow = agentosClient.startAgencyWorkflow.bind(agentosClient);
 export const getLlmStatus = agentosClient.getLlmStatus.bind(agentosClient);
 export const getAvailableModels = agentosClient.getAvailableModels.bind(agentosClient);
@@ -822,18 +877,26 @@ export const getTaskOutcomeAlertRetentionStatus =
 export const pruneTaskOutcomeAlertHistory =
   agentosClient.pruneTaskOutcomeAlertHistory.bind(agentosClient);
 
-// Guardrails
-// Guardrails
+export type GuardrailTier = 'dangerous' | 'permissive' | 'balanced' | 'strict' | 'paranoid';
+
 export interface GuardrailDescriptor {
 	id: string;
 	package: string;
-	version: string;
-	displayName: string;
-	description?: string;
-	category?: 'safety' | 'privacy' | 'budget' | 'compliance' | 'quality' | 'custom';
+	name: string;
+	description: string;
+	installed: boolean;
+	enabled: boolean;
 	verified?: boolean;
-	capabilities?: string[];
-	repository?: string;
+}
+
+export interface GuardrailConfigResponse {
+  tier: GuardrailTier;
+  packs: GuardrailDescriptor[];
+}
+
+export interface ConversationHistoryResponse {
+  conversation: Record<string, unknown> | null;
+  unsupported?: boolean;
 }
 
 /** Agency execution record from the API */
@@ -1016,13 +1079,24 @@ export async function getAgencyExecution(agencyId: string): Promise<{ execution:
  * @property enabled      - Current toggle state.
  */
 export interface SkillInfo {
+  id: string;
   name: string;
+  displayName: string;
+  version: string;
   description: string;
   category: string;
+  namespace?: string;
+  verified: boolean;
+  source: string;
+  verifiedAt?: string;
   tags: string[];
   emoji: string;
   primaryEnv: string | null;
+  requiredEnvVars: string[];
+  requiredSecrets: string[];
   requiresTools: string[];
+  requiredBins: string[];
+  installHints: Array<Record<string, unknown>>;
   enabled: boolean;
 }
 

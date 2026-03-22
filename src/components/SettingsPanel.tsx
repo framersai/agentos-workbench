@@ -9,9 +9,12 @@
 
 import { useEffect, useState } from 'react';
 import { fetchUserSettings, updateUserSettings, type ProviderKey, type ProviderUpdatePayload } from '../lib/settingsClient';
+import { configureGuardrails } from '../lib/agentosClient';
 import { GuardrailPackManager } from './GuardrailPackManager';
 import { StorageDashboard } from './StorageDashboard';
 import { SkillBrowser } from './SkillBrowser';
+import { ExtensionManager } from './ExtensionManager';
+import { SecretManager } from './SecretManager';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -245,12 +248,9 @@ export function SettingsPanel() {
       {activeTab === 'guardrails' && (
         <GuardrailPackManager
           onConfigChange={(cfg) => {
-            // Forward to backend for persistence (fire-and-forget)
-            fetch('/api/guardrails/configure', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(cfg),
-            }).catch(() => {/* non-critical */});
+            void configureGuardrails(cfg).catch(() => {
+              // Non-blocking settings write.
+            });
           }}
         />
       )}
@@ -258,19 +258,9 @@ export function SettingsPanel() {
       {/* Skills — SkillBrowser (Task 4) */}
       {activeTab === 'skills' && <SkillBrowser />}
 
-      {/* Extensions — placeholder (ExtensionManager not yet present in this panel) */}
-      {activeTab === 'extensions' && (
-        <div className="text-xs theme-text-secondary py-2">
-          Extension manager coming soon
-        </div>
-      )}
+      {activeTab === 'extensions' && <ExtensionManager />}
 
-      {/* Secrets — placeholder */}
-      {activeTab === 'secrets' && (
-        <div className="text-xs theme-text-secondary py-2">
-          Secret manager coming soon
-        </div>
-      )}
+      {activeTab === 'secrets' && <SecretManager />}
 
       {/* Storage — existing StorageDashboard */}
       {activeTab === 'storage' && (

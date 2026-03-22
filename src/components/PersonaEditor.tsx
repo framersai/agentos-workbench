@@ -2,7 +2,14 @@ import { useState } from 'react';
 import { Save, X, Shield, Plug, Settings2, User } from 'lucide-react';
 import { useSessionStore, type PersonaDefinition } from '@/state/sessionStore';
 /** Inline type for persona guardrail config (replaces deleted GuardrailManager export) */
-type SerializableGuardrail = { id: string; type: string; displayName: string; enabled: boolean; config: Record<string, unknown> };
+type SerializableGuardrail = {
+  id: string;
+  type: string;
+  displayName: string;
+  description?: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+};
 
 interface PersonaEditorProps {
   persona: PersonaDefinition;
@@ -211,7 +218,7 @@ export function PersonaEditor({ persona, onClose }: PersonaEditorProps) {
                   <div key={idx} className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-slate-950/40">
                     <div>
                       <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{g.displayName}</p>
-                      <p className="text-xs text-slate-500">{g.description}</p>
+                      <p className="text-xs text-slate-500">{g.description || g.type}</p>
                     </div>
                     <button
                       type="button"

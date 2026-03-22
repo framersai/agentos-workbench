@@ -74,7 +74,10 @@ export function SkillDetail({ skill, onClose, onToggle }: SkillDetailProps) {
         <span className="text-3xl leading-none" aria-hidden="true">
           {skill.emoji}
         </span>
-        <h2 className="text-base font-semibold theme-text-primary">{skill.name}</h2>
+        <div>
+          <h2 className="text-base font-semibold theme-text-primary">{skill.displayName}</h2>
+          <p className="text-[11px] font-mono theme-text-muted">{skill.name}</p>
+        </div>
       </div>
 
       {/* ------------------------------------------------------------------ */}
@@ -84,6 +87,14 @@ export function SkillDetail({ skill, onClose, onToggle }: SkillDetailProps) {
         <span className="rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] font-medium text-sky-400">
           {skill.category}
         </span>
+        <span className="rounded-full bg-white/5 px-2 py-0.5 text-[10px] theme-text-muted">
+          {skill.source}
+        </span>
+        {skill.verified && (
+          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300">
+            verified
+          </span>
+        )}
         {skill.tags.map((tag) => (
           <span
             key={tag}
@@ -138,16 +149,19 @@ export function SkillDetail({ skill, onClose, onToggle }: SkillDetailProps) {
         <p className="mb-1 text-[10px] uppercase tracking-[0.35em] theme-text-muted">
           Environment
         </p>
-        {skill.primaryEnv ? (
-          <span className="flex items-center gap-1.5 text-xs">
-            <span
-              className="inline-block h-2 w-2 rounded-full bg-amber-400"
-              aria-hidden="true"
-              title="Env var required"
-            />
-            <code className="font-mono text-amber-300">{skill.primaryEnv}</code>
-            <span className="theme-text-muted">required</span>
-          </span>
+        {skill.requiredEnvVars.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {skill.requiredEnvVars.map((envVar) => (
+              <span key={envVar} className="flex items-center gap-1.5 text-xs">
+                <span
+                  className="inline-block h-2 w-2 rounded-full bg-amber-400"
+                  aria-hidden="true"
+                  title="Env var required"
+                />
+                <code className="font-mono text-amber-300">{envVar}</code>
+              </span>
+            ))}
+          </div>
         ) : (
           <span className="flex items-center gap-1.5 text-xs theme-text-secondary">
             <span
@@ -159,6 +173,42 @@ export function SkillDetail({ skill, onClose, onToggle }: SkillDetailProps) {
           </span>
         )}
       </div>
+
+      {skill.requiredSecrets.length > 0 && (
+        <div>
+          <p className="mb-1.5 text-[10px] uppercase tracking-[0.35em] theme-text-muted">
+            Required secrets
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {skill.requiredSecrets.map((secretId) => (
+              <span
+                key={secretId}
+                className="rounded-sm bg-white/5 px-2 py-1 text-[11px] font-mono theme-text-secondary"
+              >
+                {secretId}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {skill.requiredBins.length > 0 && (
+        <div>
+          <p className="mb-1.5 text-[10px] uppercase tracking-[0.35em] theme-text-muted">
+            Local prerequisites
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {skill.requiredBins.map((bin) => (
+              <span
+                key={bin}
+                className="rounded-sm bg-white/5 px-2 py-1 text-[11px] font-mono text-cyan-300"
+              >
+                {bin}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* SKILL.md content                                                    */}

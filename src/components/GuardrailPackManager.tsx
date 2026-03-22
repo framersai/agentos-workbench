@@ -1,201 +1,182 @@
-/**
- * GuardrailPackManager — replaces the old regex/keyword guardrail editor
- * with the real AgentOS 5-pack extension system.
- *
- * Sections:
- * 1. Security Tier Picker — 5 radio buttons (dangerous → paranoid)
- * 2. Pack Toggles — 5 checkboxes with status badges
- * 3. Live Status — per-pack evaluation stats (collapsed by default)
- */
+import { useEffect, useMemo, useState } from 'react';
+import { Brain, Code, Search, Shield, Target, type LucideIcon } from 'lucide-react';
+import {
+  getGuardrails,
+  type GuardrailConfigResponse,
+  type GuardrailTier,
+} from '../lib/agentosClient';
 
-import { useState } from 'react';
-import { Shield, Brain, Target, Code, Search } from 'lucide-react';
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-/** Supported security tier identifiers, ordered from least to most restrictive. */
-type Tier = 'dangerous' | 'permissive' | 'balanced' | 'strict' | 'paranoid';
-
-/** Keyed pack enable/disable state for the 5 AgentOS guardrail packs. */
-interface PackState {
+type PackState = {
   piiRedaction: boolean;
   mlClassifiers: boolean;
   topicality: boolean;
   codeSafety: boolean;
   groundingGuard: boolean;
-}
+};
 
-/** Props accepted by GuardrailPackManager. */
 export interface GuardrailPackManagerProps {
-  /**
-   * Called whenever the tier or any individual pack toggle changes.
-   * Receives the full current configuration snapshot.
-   */
-  onConfigChange?: (config: { tier: string; packs: Record<string, boolean> }) => void;
+  onConfigChange?: (config: { tier: GuardrailTier; packs: Record<string, boolean> }) => void;
 }
 
-// ---------------------------------------------------------------------------
-// Static data
-// ---------------------------------------------------------------------------
-
-/**
- * Canonical pack defaults for each security tier.
- * Used to (a) seed pack state when a tier is selected and
- * (b) determine whether individual packs have been overridden ("custom" badge).
- */
-const TIER_PACK_DEFAULTS: Record<Tier, PackState> = {
-  dangerous:  { piiRedaction: false, mlClassifiers: false, topicality: false, codeSafety: false, groundingGuard: false },
-  permissive: { piiRedaction: false, mlClassifiers: false, topicality: false, codeSafety: true,  groundingGuard: false },
-  balanced:   { piiRedaction: true,  mlClassifiers: false, topicality: false, codeSafety: true,  groundingGuard: false },
-  strict:     { piiRedaction: true,  mlClassifiers: true,  topicality: false, codeSafety: true,  groundingGuard: false },
-  paranoid:   { piiRedaction: true,  mlClassifiers: true,  topicality: true,  codeSafety: true,  groundingGuard: true  },
+const TIER_PACK_DEFAULTS: Record<GuardrailTier, PackState> = {
+  dangerous: { piiRedaction: false, mlClassifiers: false, topicality: false, codeSafety: false, groundingGuard: false },
+  permissive: { piiRedaction: false, mlClassifiers: false, topicality: false, codeSafety: true, groundingGuard: false },
+  balanced: { piiRedaction: true, mlClassifiers: false, topicality: false, codeSafety: true, groundingGuard: false },
+  strict: { piiRedaction: true, mlClassifiers: true, topicality: false, codeSafety: true, groundingGuard: false },
+  paranoid: { piiRedaction: true, mlClassifiers: true, topicality: true, codeSafety: true, groundingGuard: true },
 };
 
-/**
- * One-line description shown next to each tier radio button.
- */
-const TIER_DESCRIPTIONS: Record<Tier, string> = {
-  dangerous:  'No guardrails — unrestricted access',
-  permissive: 'Code safety only — lightweight regex scanning',
-  balanced:   'PII redaction + code safety — recommended for most use cases',
-  strict:     'PII + ML classifiers + code safety — production-grade',
-  paranoid:   'All 5 packs enabled — maximum safety',
+const TIER_DESCRIPTIONS: Record<GuardrailTier, string> = {
+  dangerous: 'No guardrails; useful only for fully trusted local workflows.',
+  permissive: 'Minimal scanning with code safety enabled by default.',
+  balanced: 'PII redaction plus code safety; good default for most agents.',
+  strict: 'Adds ML classifiers for stronger production protections.',
+  paranoid: 'Enables all published safety packs for maximum enforcement.',
 };
 
-/** Ordered list of tier keys for deterministic rendering. */
-const TIERS: Tier[] = ['dangerous', 'permissive', 'balanced', 'strict', 'paranoid'];
+const TIERS: GuardrailTier[] = ['dangerous', 'permissive', 'balanced', 'strict', 'paranoid'];
 
-/**
- * Metadata for each of the 5 guardrail extension packs.
- * `key` matches the `PackState` property name; `icon` is a lucide-react component.
- */
 const PACK_INFO: Array<{
-  key: keyof PackState;
-  name: string;
-  description: string;
-  Icon: React.FC<{ size?: number; className?: string }>;
+  id: keyof PackState;
+  apiId: string;
+  fallbackName: string;
+  fallbackDescription: string;
+  Icon: LucideIcon;
 }> = [
   {
-    key: 'piiRedaction',
-    name: 'PII Redaction',
-    description: 'Detect and redact personal info (SSN, names, emails) via regex + NER + LLM',
+    id: 'piiRedaction',
+    apiId: 'pii-redaction',
+    fallbackName: 'PII Redaction',
+    fallbackDescription: 'Detect and redact personal data before it leaves the model boundary.',
     Icon: Shield,
   },
   {
-    key: 'mlClassifiers',
-    name: 'ML Classifiers',
-    description: 'Toxicity, injection, jailbreak detection via ONNX BERT models',
+    id: 'mlClassifiers',
+    apiId: 'ml-classifiers',
+    fallbackName: 'ML Classifiers',
+    fallbackDescription: 'Classify toxicity, prompt injection, and jailbreak attempts.',
     Icon: Brain,
   },
   {
-    key: 'topicality',
-    name: 'Topicality',
-    description: 'Embedding-based topic enforcement with session drift detection',
+    id: 'topicality',
+    apiId: 'topicality',
+    fallbackName: 'Topicality',
+    fallbackDescription: 'Keep conversations on policy-approved topics and detect drift.',
     Icon: Target,
   },
   {
-    key: 'codeSafety',
-    name: 'Code Safety',
-    description: 'OWASP Top 10 code scanning for LLM-generated code (25 regex rules)',
+    id: 'codeSafety',
+    apiId: 'code-safety',
+    fallbackName: 'Code Safety',
+    fallbackDescription: 'Scan generated code for dangerous or policy-disallowed patterns.',
     Icon: Code,
   },
   {
-    key: 'groundingGuard',
-    name: 'Grounding Guard',
-    description: 'RAG-grounded hallucination detection via NLI entailment',
+    id: 'groundingGuard',
+    apiId: 'grounding-guard',
+    fallbackName: 'Grounding Guard',
+    fallbackDescription: 'Verify factual grounding against retrieved context and source material.',
     Icon: Search,
   },
 ];
 
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
+function toPackState(response: GuardrailConfigResponse): PackState {
+  const enabledPacks = new Map(response.packs.map((pack) => [pack.id, pack.enabled]));
+  return {
+    piiRedaction: enabledPacks.get('pii-redaction') ?? TIER_PACK_DEFAULTS[response.tier].piiRedaction,
+    mlClassifiers: enabledPacks.get('ml-classifiers') ?? TIER_PACK_DEFAULTS[response.tier].mlClassifiers,
+    topicality: enabledPacks.get('topicality') ?? TIER_PACK_DEFAULTS[response.tier].topicality,
+    codeSafety: enabledPacks.get('code-safety') ?? TIER_PACK_DEFAULTS[response.tier].codeSafety,
+    groundingGuard: enabledPacks.get('grounding-guard') ?? TIER_PACK_DEFAULTS[response.tier].groundingGuard,
+  };
+}
 
-/**
- * GuardrailPackManager renders the AgentOS 5-pack guardrail configuration UI.
- *
- * The component is self-contained: it manages its own tier + pack state and
- * propagates changes upward via the optional `onConfigChange` callback.
- *
- * @example
- * ```tsx
- * <GuardrailPackManager onConfigChange={(cfg) => console.log(cfg)} />
- * ```
- */
 export function GuardrailPackManager({ onConfigChange }: GuardrailPackManagerProps) {
-  const [tier, setTier] = useState<Tier>('balanced');
-  const [packs, setPacks] = useState<PackState>({ ...TIER_PACK_DEFAULTS['balanced'] });
+  const [tier, setTier] = useState<GuardrailTier>('balanced');
+  const [packs, setPacks] = useState<PackState>({ ...TIER_PACK_DEFAULTS.balanced });
+  const [catalog, setCatalog] = useState<GuardrailConfigResponse['packs']>([]);
+  const [loading, setLoading] = useState(true);
 
-  /**
-   * Handles tier selection: resets all packs to tier defaults and fires the
-   * onConfigChange callback with the new canonical state.
-   */
-  const handleTierChange = (newTier: Tier) => {
-    const defaults = { ...TIER_PACK_DEFAULTS[newTier] };
-    setTier(newTier);
-    setPacks(defaults);
-    onConfigChange?.({ tier: newTier, packs: defaults });
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const config = await getGuardrails();
+        if (cancelled) return;
+        setTier(config.tier);
+        setPacks(toPackState(config));
+        setCatalog(config.packs);
+      } catch {
+        if (!cancelled) {
+          setCatalog([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const catalogById = useMemo(
+    () => new Map(catalog.map((pack) => [pack.id, pack])),
+    [catalog]
+  );
+
+  const emitConfig = (nextTier: GuardrailTier, nextPacks: PackState) => {
+    onConfigChange?.({ tier: nextTier, packs: nextPacks });
   };
 
-  /**
-   * Handles an individual pack toggle.  The tier selection is preserved; a
-   * "custom" badge will appear on any pack whose value differs from the tier
-   * default.
-   */
+  const handleTierChange = (nextTier: GuardrailTier) => {
+    const nextPacks = { ...TIER_PACK_DEFAULTS[nextTier] };
+    setTier(nextTier);
+    setPacks(nextPacks);
+    emitConfig(nextTier, nextPacks);
+  };
+
   const handlePackToggle = (key: keyof PackState) => {
-    const updated = { ...packs, [key]: !packs[key] };
-    setPacks(updated);
-    onConfigChange?.({ tier, packs: updated });
+    const nextPacks = { ...packs, [key]: !packs[key] };
+    setPacks(nextPacks);
+    emitConfig(tier, nextPacks);
   };
+
+  if (loading) {
+    return <p className="text-xs theme-text-muted">Loading guardrail packs…</p>;
+  }
 
   return (
     <div className="space-y-4">
-      {/* ------------------------------------------------------------------ */}
-      {/* Security Tier                                                       */}
-      {/* ------------------------------------------------------------------ */}
       <div>
-        <p className="text-[10px] uppercase tracking-[0.35em] theme-text-muted mb-0.5">
-          Security Tier
+        <p className="mb-0.5 text-[10px] uppercase tracking-[0.35em] theme-text-muted">Security Tier</p>
+        <p className="mb-2 text-[10px] theme-text-secondary">
+          Choose the default guardrail posture, then override individual packs if needed.
         </p>
-        <p className="text-[10px] theme-text-secondary mb-2">
-          Select the overall guardrail posture for this agent.
-        </p>
-
         <div className="space-y-1">
-          {TIERS.map((t) => {
-            const isSelected = tier === t;
+          {TIERS.map((value) => {
+            const selected = tier === value;
             return (
               <label
-                key={t}
+                key={value}
                 className={[
-                  'flex items-start gap-2.5 cursor-pointer rounded-lg border px-3 py-2 transition-colors',
-                  isSelected
-                    ? 'border-sky-500/60 bg-sky-500/10'
-                    : 'theme-border theme-bg-primary hover:bg-white/5',
+                  'flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 transition-colors',
+                  selected ? 'border-sky-500/60 bg-sky-500/10' : 'theme-border theme-bg-primary hover:bg-white/5',
                 ].join(' ')}
               >
                 <input
                   type="radio"
                   name="guardrail-tier"
-                  value={t}
-                  checked={isSelected}
-                  onChange={() => handleTierChange(t)}
-                  className="mt-0.5 accent-sky-500 shrink-0"
+                  checked={selected}
+                  onChange={() => handleTierChange(value)}
+                  className="mt-0.5 shrink-0 accent-sky-500"
                 />
                 <div>
-                  <span
-                    className={[
-                      'text-xs font-semibold capitalize',
-                      isSelected ? 'text-sky-400' : 'theme-text-primary',
-                    ].join(' ')}
-                  >
-                    {t}
+                  <span className={selected ? 'text-xs font-semibold capitalize text-sky-400' : 'text-xs font-semibold capitalize theme-text-primary'}>
+                    {value}
                   </span>
-                  <p className="text-[10px] theme-text-secondary mt-0.5">
-                    {TIER_DESCRIPTIONS[t]}
-                  </p>
+                  <p className="mt-0.5 text-[10px] theme-text-secondary">{TIER_DESCRIPTIONS[value]}</p>
                 </div>
               </label>
             );
@@ -203,60 +184,62 @@ export function GuardrailPackManager({ onConfigChange }: GuardrailPackManagerPro
         </div>
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Guardrail Packs                                                     */}
-      {/* ------------------------------------------------------------------ */}
       <div>
-        <p className="text-[10px] uppercase tracking-[0.35em] theme-text-muted mb-0.5">
-          Guardrail Packs
-        </p>
-        <p className="text-[10px] theme-text-secondary mb-2">
-          Content safety extensions. Toggle individual packs to override tier defaults.
+        <p className="mb-0.5 text-[10px] uppercase tracking-[0.35em] theme-text-muted">Guardrail Packs</p>
+        <p className="mb-2 text-[10px] theme-text-secondary">
+          Registry-backed safety extensions. Installed status now reflects the actual extension sources in this repo.
         </p>
 
         <div className="space-y-1.5">
-          {PACK_INFO.map(({ key, name, description, Icon }) => {
-            const enabled = packs[key];
-            const isCustom = enabled !== TIER_PACK_DEFAULTS[tier][key];
-
+          {PACK_INFO.map(({ id, apiId, fallbackName, fallbackDescription, Icon }) => {
+            const pack = catalogById.get(apiId);
+            const enabled = packs[id];
+            const isCustom = enabled !== TIER_PACK_DEFAULTS[tier][id];
             return (
               <label
-                key={key}
+                key={apiId}
                 className={[
-                  'flex items-start gap-2.5 cursor-pointer rounded-lg border px-3 py-2 transition-colors',
-                  enabled
-                    ? 'theme-border theme-bg-primary'
-                    : 'theme-border theme-bg-primary opacity-60',
-                  'hover:bg-white/5',
+                  'flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2 transition-colors hover:bg-white/5',
+                  enabled ? 'theme-border theme-bg-primary' : 'theme-border theme-bg-primary opacity-70',
                 ].join(' ')}
               >
-                {/* Checkbox */}
                 <input
                   type="checkbox"
                   checked={enabled}
-                  onChange={() => handlePackToggle(key)}
-                  className="mt-0.5 accent-sky-500 shrink-0"
+                  onChange={() => handlePackToggle(id)}
+                  className="mt-0.5 shrink-0 accent-sky-500"
                 />
-
-                {/* Icon */}
                 <Icon
                   size={14}
                   className={enabled ? 'mt-0.5 shrink-0 text-sky-400' : 'mt-0.5 shrink-0 theme-text-muted'}
                 />
-
-                {/* Text */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-xs font-semibold theme-text-primary">{name}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs font-semibold theme-text-primary">
+                      {pack?.name ?? fallbackName}
+                    </span>
+                    {pack?.installed && (
+                      <span className="rounded-full border border-emerald-500/30 bg-emerald-500/15 px-1.5 py-px text-[9px] font-medium uppercase tracking-wide text-emerald-300">
+                        installed
+                      </span>
+                    )}
+                    {pack?.verified && (
+                      <span className="rounded-full border border-sky-500/30 bg-sky-500/15 px-1.5 py-px text-[9px] font-medium uppercase tracking-wide text-sky-300">
+                        verified
+                      </span>
+                    )}
                     {isCustom && (
-                      <span className="rounded-full bg-amber-500/20 px-1.5 py-px text-[9px] font-medium text-amber-400 border border-amber-500/30 uppercase tracking-wide">
+                      <span className="rounded-full border border-amber-500/30 bg-amber-500/20 px-1.5 py-px text-[9px] font-medium uppercase tracking-wide text-amber-400">
                         custom
                       </span>
                     )}
                   </div>
-                  <p className="text-[10px] theme-text-secondary mt-0.5 leading-relaxed">
-                    {description}
+                  <p className="mt-0.5 text-[10px] leading-relaxed theme-text-secondary">
+                    {pack?.description ?? fallbackDescription}
                   </p>
+                  {pack?.package && (
+                    <p className="mt-1 text-[10px] font-mono theme-text-muted">{pack.package}</p>
+                  )}
                 </div>
               </label>
             );

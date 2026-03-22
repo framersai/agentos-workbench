@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Badge } from './ui/Badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/Tabs';
-import { agentosClient } from '../lib/agentosClient';
+import {
+  agentosClient,
+  type ExtensionInfo,
+  type ExtensionToolInfo,
+} from '../lib/agentosClient';
 import {
   Package,
   Search,
@@ -17,42 +21,13 @@ import {
   ChevronRight
 } from 'lucide-react';
 
-interface Extension {
-  id: string;
-  name: string;
-  package: string;
-  version: string;
-  description: string;
-  category: string;
-  verified?: boolean;
-  verifiedAt?: string;
-  verifiedBy?: { name?: string; email?: string };
-  verificationChecklistVersion?: string;
-  installed?: boolean;
-  tools?: string[];
-  author?: {
-    name: string;
-    url?: string;
-  };
-}
-
-interface Tool {
-  id: string;
-  name: string;
-  description: string;
-  extension: string;
-  inputSchema?: Record<string, unknown>;
-  outputSchema?: Record<string, unknown>;
-  hasSideEffects?: boolean;
-}
-
 export const ExtensionManager: React.FC = () => {
-  const [extensions, setExtensions] = useState<Extension[]>([]);
-  const [availableTools, setAvailableTools] = useState<Tool[]>([]);
+  const [extensions, setExtensions] = useState<ExtensionInfo[]>([]);
+  const [availableTools, setAvailableTools] = useState<ExtensionToolInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [loading, setLoading] = useState(false);
-  const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+  const [selectedTool, setSelectedTool] = useState<ExtensionToolInfo | null>(null);
   const [testInput, setTestInput] = useState('{}');
   const [testOutput, setTestOutput] = useState('');
 
@@ -116,7 +91,15 @@ export const ExtensionManager: React.FC = () => {
     return true;
   });
 
-  const categories = ['all', 'research', 'integrations', 'productivity', 'development', 'utilities'];
+  const categories = useMemo(
+    () => [
+      'all',
+      ...Array.from(new Set(extensions.map((ext) => ext.category))).sort((left, right) =>
+        left.localeCompare(right)
+      ),
+    ],
+    [extensions]
+  );
 
   return (
     <div className="flex flex-col h-full p-4 space-y-4">
@@ -159,7 +142,9 @@ export const ExtensionManager: React.FC = () => {
                   size="sm"
                   onClick={() => setSelectedCategory(cat)}
                 >
-                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                  {cat === 'all'
+                    ? 'All'
+                    : cat.replace(/[-_]+/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase())}
                 </Button>
               ))}
             </div>
@@ -208,6 +193,16 @@ export const ExtensionManager: React.FC = () => {
                   </div>
                   
                   <p className="text-sm">{ext.description}</p>
+
+                  {ext.features && ext.features.length > 0 && (
+                    <div className="space-y-1">
+                      {ext.features.slice(0, 2).map((feature) => (
+                        <p key={feature} className="text-xs text-muted-foreground">
+                          {feature}
+                        </p>
+                      ))}
+                    </div>
+                  )}
                   
                   {ext.tools && ext.tools.length > 0 && (
                     <div className="flex flex-wrap gap-1">
@@ -216,6 +211,34 @@ export const ExtensionManager: React.FC = () => {
                           {tool}
                         </Badge>
                       ))}
+                    </div>
+                  )}
+
+                  {ext.platforms && ext.platforms.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {ext.platforms.map((platform) => (
+                        <Badge key={platform} variant="secondary" size="sm">
+                          {platform}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  {(ext.requiredEnvVars?.length ?? 0) > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {ext.requiredEnvVars!.map((envVar) => (
+                        <Badge key={envVar} variant="warning" size="sm">
+                          {envVar}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+
+                  {ext.configuration && Object.keys(ext.configuration).length > 0 && (
+                    <div className="text-xs text-muted-foreground">
+                      {Object.keys(
+                        (ext.configuration.properties as Record<string, unknown> | undefined) ?? ext.configuration
+                      ).length} configuration fields
                     </div>
                   )}
                   
@@ -256,7 +279,9 @@ export const ExtensionManager: React.FC = () => {
                 <p className="text-sm text-muted-foreground">{tool.description}</p>
                 
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">from {tool.extension}</span>
+                  <span className="text-muted-foreground">
+                    {tool.kind ? `${tool.kind} · ` : ''}from {tool.extension}
+                  </span>
                   <ChevronRight className="w-4 h-4" />
                 </div>
               </Card>
@@ -273,6 +298,11 @@ export const ExtensionManager: React.FC = () => {
                 <div>
                   <h3 className="font-semibold text-lg">{selectedTool.name}</h3>
                   <p className="text-sm text-muted-foreground">{selectedTool.description}</p>
+                  {selectedTool.extensionPackage && (
+                    <p className="mt-1 text-xs font-mono text-muted-foreground">
+                      {selectedTool.extensionPackage}
+                    </p>
+                  )}
                 </div>
                 
                 {/* Input Schema */}
@@ -293,6 +323,12 @@ export const ExtensionManager: React.FC = () => {
                       {JSON.stringify(selectedTool.outputSchema, null, 2)}
                     </pre>
                   </div>
+                )}
+
+                {!selectedTool.inputSchema && !selectedTool.outputSchema && (
+                  <p className="text-xs text-muted-foreground">
+                    This registry entry exposes tool metadata only. Runtime schemas are not surfaced in standalone mode.
+                  </p>
                 )}
               </Card>
               

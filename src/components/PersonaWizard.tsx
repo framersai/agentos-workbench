@@ -1,12 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, ArrowRight, ArrowLeft, Check, Shield, Plug, Settings2, FileText } from 'lucide-react';
 import { useSessionStore, type PersonaDefinition } from '@/state/sessionStore';
 import { persistPersonaRow } from "@/lib/storageBridge";
+import {
+  getExtensions,
+  getGuardrails,
+  type ExtensionInfo,
+  type GuardrailDescriptor,
+} from '@/lib/agentosClient';
 /** Inline type for persona guardrail config (replaces deleted GuardrailManager export) */
 interface GuardrailConfig {
   id: string;
   type: string;
   displayName: string;
+  description?: string;
   enabled: boolean;
   config: Record<string, unknown>;
 }
@@ -38,6 +45,8 @@ export function PersonaWizard({ open, onClose }: PersonaWizardProps) {
   const addPersona = useSessionStore((s) => s.addPersona);
   const personas = useSessionStore((s) => s.personas);
   const [step, setStep] = useState<StepKey>('basics');
+  const [availableGuardrails, setAvailableGuardrails] = useState<GuardrailDescriptor[]>([]);
+  const [availableExtensions, setAvailableExtensions] = useState<ExtensionInfo[]>([]);
   
   // Generate unique default name
   const generateDefaultName = () => {
@@ -63,6 +72,30 @@ export function PersonaWizard({ open, onClose }: PersonaWizardProps) {
 
   const currentStepIndex = STEPS.findIndex((s) => s.key === step);
   const isLastStep = currentStepIndex === STEPS.length - 1;
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void (async () => {
+      const [guardrailConfig, extensions] = await Promise.all([
+        getGuardrails().catch(() => null),
+        getExtensions().catch(() => [] as ExtensionInfo[]),
+      ]);
+      if (cancelled) return;
+      setAvailableGuardrails(guardrailConfig?.packs ?? []);
+      setAvailableExtensions(
+        [...extensions].sort((left, right) => {
+          if (Boolean(left.installed) !== Boolean(right.installed)) {
+            return left.installed ? -1 : 1;
+          }
+          return left.name.localeCompare(right.name);
+        })
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   const handleNext = () => {
     if (isLastStep) {
@@ -284,11 +317,7 @@ export function PersonaWizard({ open, onClose }: PersonaWizardProps) {
               </p>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/40">
                 <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">Available Guardrails</p>
-                {[
-                  { id: 'pii-protection', name: 'PII Protection', desc: 'Redact SSN, email, phone' },
-                  { id: 'cost-ceiling', name: 'Cost Ceiling', desc: 'Limit response cost' },
-                  { id: 'sensitive-topic', name: 'Sensitive Topics', desc: 'Block harmful content' },
-                ].map((g) => {
+                {availableGuardrails.map((g) => {
                   const enabled = draft.guardrails?.some((dg) => dg.id === g.id);
                   return (
                     <label key={g.id} className="flex items-start gap-3 rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-900">
@@ -303,8 +332,9 @@ export function PersonaWizard({ open, onClose }: PersonaWizardProps) {
                                 ...(d.guardrails || []),
                                 {
                                   id: g.id,
-                                  type: `@framersai/guardrail-${g.id}`,
+                                  type: g.package,
                                   displayName: g.name,
+                                  description: g.description,
                                   enabled: true,
                                   config: {},
                                 },
@@ -321,11 +351,14 @@ export function PersonaWizard({ open, onClose }: PersonaWizardProps) {
                       />
                       <div>
                         <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{g.name}</p>
-                        <p className="text-xs text-slate-500">{g.desc}</p>
+                        <p className="text-xs text-slate-500">{g.description}</p>
                       </div>
                     </label>
                   );
                 })}
+                {availableGuardrails.length === 0 && (
+                  <p className="text-xs text-slate-500">No guardrail packs available.</p>
+                )}
               </div>
               {draft.guardrails && draft.guardrails.length > 0 && (
                 <div className="text-xs text-slate-500">
@@ -342,12 +375,9 @@ export function PersonaWizard({ open, onClose }: PersonaWizardProps) {
               </p>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/40">
                 <p className="mb-2 text-xs font-medium uppercase tracking-wider text-slate-500">Available Extensions</p>
-                {[
-                  { id: '@framersai/ext-web-search', name: 'Web Search', desc: 'Search the web, fact-check, research' },
-                  { id: '@framersai/ext-telegram', name: 'Telegram Bot', desc: 'Send messages, manage groups' },
-                  { id: '@framersai/ext-code-executor', name: 'Code Executor', desc: 'Run Python, JS in sandbox' },
-                ].map((ext) => {
-                  const enabled = draft.extensions?.includes(ext.id);
+                <div className="max-h-72 space-y-1 overflow-y-auto pr-1">
+                {availableExtensions.map((ext) => {
+                  const enabled = draft.extensions?.includes(ext.package);
                   return (
                     <label key={ext.id} className="flex items-start gap-3 rounded-lg p-2 hover:bg-slate-100 dark:hover:bg-slate-900">
                       <input
@@ -355,21 +385,32 @@ export function PersonaWizard({ open, onClose }: PersonaWizardProps) {
                         checked={enabled}
                         onChange={(e) => {
                           if (e.target.checked) {
-                            setDraft((d) => ({ ...d, extensions: [...(d.extensions || []), ext.id] }));
+                            setDraft((d) => ({ ...d, extensions: [...(d.extensions || []), ext.package] }));
                           } else {
-                            setDraft((d) => ({ ...d, extensions: (d.extensions || []).filter((e) => e !== ext.id) }));
+                            setDraft((d) => ({ ...d, extensions: (d.extensions || []).filter((value) => value !== ext.package) }));
                           }
                         }}
                         className="mt-0.5"
                       />
                       <div>
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{ext.name}</p>
-                        <p className="text-xs text-slate-500">{ext.desc}</p>
-                        <p className="text-[10px] font-mono text-slate-400">{ext.id}</p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100">{ext.name}</p>
+                          {ext.installed && (
+                            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] text-emerald-300">
+                              installed
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500">{ext.description}</p>
+                        <p className="text-[10px] font-mono text-slate-400">{ext.package}</p>
                       </div>
                     </label>
                   );
                 })}
+                {availableExtensions.length === 0 && (
+                  <p className="text-xs text-slate-500">No extensions available.</p>
+                )}
+                </div>
               </div>
               {draft.extensions && draft.extensions.length > 0 && (
                 <div className="text-xs text-slate-500">
