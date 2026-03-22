@@ -4,7 +4,6 @@ import {
   mockExtensions,
   mockTools,
   mockModels,
-  mockGuardrails,
   mockExecutions
 } from '../mockData';
 
@@ -475,33 +474,117 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
     return { models: mockModels };
   });
 
+  // ---------------------------------------------------------------------------
+  // Guardrail Pack endpoints
+  // ---------------------------------------------------------------------------
+
   /**
-   * List guardrails.
+   * In-memory guardrail configuration store.
+   *
+   * Holds the active security tier and the per-pack enable/disable state.
+   * Persisted only for the lifetime of the process; a real implementation
+   * would back this with a database row.
+   */
+  let guardrailConfig: {
+    tier: string;
+    packs: Array<{
+      id: string;
+      name: string;
+      description: string;
+      installed: boolean;
+      enabled: boolean;
+    }>;
+  } = {
+    tier: 'balanced',
+    packs: [
+      { id: 'pii-redaction',  name: 'PII Redaction',  description: 'Detect and redact personal info',                         installed: false, enabled: true  },
+      { id: 'ml-classifiers', name: 'ML Classifiers', description: 'Toxicity, injection, jailbreak via ONNX BERT',             installed: false, enabled: false },
+      { id: 'topicality',     name: 'Topicality',     description: 'Embedding-based topic enforcement + drift detection',      installed: false, enabled: false },
+      { id: 'code-safety',    name: 'Code Safety',    description: 'OWASP Top 10 code scanning (25 regex rules)',              installed: false, enabled: true  },
+      { id: 'grounding-guard',name: 'Grounding Guard',description: 'RAG-grounded hallucination detection via NLI',             installed: false, enabled: false },
+    ],
+  };
+
+  /**
+   * GET /guardrails — returns the current guardrail tier + pack configuration.
    */
   fastify.get('/guardrails', {
     schema: {
-      description: 'List all available guardrails',
+      description: 'Get the current guardrail tier and 5-pack configuration',
       tags: ['AgentOS'],
       response: {
         200: {
-          type: 'array',
-          items: {
-            type: 'object',
-            properties: {
-              id: { type: 'string' },
-              package: { type: 'string' },
-              version: { type: 'string' },
-              displayName: { type: 'string' },
-              description: { type: 'string' },
-              category: { type: 'string' },
-              verified: { type: 'boolean' }
-            }
-          }
+          type: 'object',
+          properties: {
+            tier:  { type: 'string' },
+            packs: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id:          { type: 'string' },
+                  name:        { type: 'string' },
+                  description: { type: 'string' },
+                  installed:   { type: 'boolean' },
+                  enabled:     { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  }, async () => guardrailConfig);
+
+  /**
+   * POST /guardrails/configure — update the active tier and/or individual pack
+   * enable states.
+   *
+   * Body fields are both optional:
+   * - `tier`  — new security tier string
+   * - `packs` — map of camelCase pack key → enabled boolean
+   *             (e.g. `{ "piiRedaction": true, "codeSafety": false }`)
+   *
+   * Pack keys are matched by converting each pack's kebab-case id to camelCase
+   * (e.g. `pii-redaction` → `piiRedaction`).
+   */
+  fastify.post('/guardrails/configure', {
+    schema: {
+      description: 'Update the guardrail tier and/or individual pack toggles',
+      tags: ['AgentOS'],
+      body: {
+        type: 'object',
+        properties: {
+          tier:  { type: 'string' },
+          packs: { type: 'object', additionalProperties: { type: 'boolean' } },
+        },
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: { ok: { type: 'boolean' } },
+        },
+      },
+    },
+  }, async (req) => {
+    const body = req.body as { tier?: string; packs?: Record<string, boolean> };
+
+    if (body.tier) {
+      guardrailConfig.tier = body.tier;
+    }
+
+    if (body.packs) {
+      for (const pack of guardrailConfig.packs) {
+        // Convert kebab-case id to camelCase to look up the incoming key.
+        // e.g. "pii-redaction" → "piiRedaction"
+        const camelKey = pack.id.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase());
+        if (camelKey in body.packs) {
+          pack.enabled = body.packs[camelKey];
         }
       }
     }
-  }, async () => {
-    return mockGuardrails;
+
+    return { ok: true };
   });
 
   /**

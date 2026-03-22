@@ -20,7 +20,9 @@
     "@fastify/swagger-ui": "^5.2.3",
     "@framers/agentos": "workspace:*",
     "dotenv": "^17.2.3",
-    "fastify": "^5.6.2"
+    "fastify": "^5.6.2",
+    "pdfkit": "^0.16.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^25.0.2",
