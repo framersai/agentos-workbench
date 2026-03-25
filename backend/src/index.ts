@@ -11,6 +11,7 @@ import marketplaceRoutes from './routes/marketplace';
 import userRoutes from './routes/user';
 import skillRoutes from './routes/skills';
 import memoryRoutes from './routes/memory.js';
+import voiceRoutes from './routes/voice';
 import { initializeAgentOS } from './lib/agentos';
 import { config } from 'dotenv';
 config()
@@ -78,6 +79,7 @@ async function main() {
   server.register(userRoutes, { prefix: '/api/user' });
   server.register(skillRoutes, { prefix: '/api/agentos' });
   server.register(memoryRoutes, { prefix: '/api/agentos' });
+  server.register(voiceRoutes, { prefix: '/api/voice' });
 
   // Health check
   server.get('/health', {

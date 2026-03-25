@@ -59,6 +59,218 @@ export interface AgentOSModelInfo {
   };
 }
 
+export interface ExtensionInstallResponse {
+  success: boolean;
+  installed: boolean;
+  mode: "connected" | "standalone";
+  message: string;
+}
+
+export interface RuntimeStatusResponse {
+  packageVersion?: string | null;
+  modernApi: {
+    generateText: boolean;
+    streamText: boolean;
+    generateImage: boolean;
+    agentFactory: boolean;
+  };
+  orchestrationApi: {
+    agentGraph: boolean;
+    workflowBuilder: boolean;
+    missionBuilder: boolean;
+    graphRuntime: boolean;
+    checkpointStore: boolean;
+  };
+  catalogs: {
+    skills: number;
+    extensions: number;
+    installedExtensions: number;
+    tools: number;
+    guardrailPacksInstalled: number;
+  };
+  runtime: {
+    connected: boolean;
+    mode: "connected" | "standalone";
+    services: {
+      conversationManager: boolean;
+      extensionManager: boolean;
+      toolOrchestrator: boolean;
+      modelProviderManager: boolean;
+      retrievalAugmentor?: boolean;
+    };
+    conversationManager?: {
+      managerId?: string | null;
+      persistenceEnabled?: boolean | null;
+      appendOnlyPersistence?: boolean | null;
+      maxActiveConversationsInMemory?: number | null;
+      activeConversations?: number;
+    };
+    providers?: {
+      configured: string[];
+      defaultProvider?: string | null;
+    };
+    capabilities?: {
+      processRequest?: boolean;
+      listAvailablePersonas?: boolean;
+      listWorkflowDefinitions?: boolean;
+      getConversationHistory?: boolean;
+    };
+    gmis?: {
+      activeCount: number;
+      items: Array<{
+        gmiId: string;
+        personaId: string;
+        state: string;
+        createdAt: string;
+        hasCognitiveMemory: boolean;
+        reasoningTraceEntries: number;
+        workingMemoryKeys: number;
+        cognitiveMemory?: {
+          totalTraces: number;
+          activeTraces: number;
+          workingMemorySlots: number;
+          workingMemoryCapacity: number;
+          prospectiveCount: number;
+        };
+      }>;
+    };
+    extensions?: {
+      loadedPacks: string[];
+      toolCount: number;
+      workflowCount: number;
+      guardrailCount: number;
+    };
+  };
+  workbenchIntegration: {
+    workflowDefinitions: boolean;
+    workflowExecution: boolean;
+    agencyExecution: boolean;
+    planningDashboardBackedByRuntime: boolean;
+    graphRunRecords?: boolean;
+    graphInspectionUi: boolean;
+    checkpointResumeUi: boolean;
+    note?: string;
+  };
+}
+
+export interface GraphRunTaskRecord {
+  taskId: string;
+  description: string;
+  status: string;
+  assignedRoleId?: string;
+  assignedExecutorId?: string;
+  output?: unknown;
+  error?: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface GraphRunEventRecord {
+  eventId: string;
+  timestamp: string;
+  type: string;
+  summary: string;
+  payload?: Record<string, unknown>;
+}
+
+export interface GraphRunCheckpointRecord {
+  checkpointId: string;
+  timestamp: string;
+  status: 'draft' | 'running' | 'completed' | 'failed';
+  completedTaskCount: number;
+  totalTaskCount: number;
+  tasks: GraphRunTaskRecord[];
+}
+
+export interface GraphRunRecord {
+  runId: string;
+  source: 'compose' | 'agency' | 'workflow';
+  goal: string;
+  workflowId?: string;
+  conversationId?: string;
+  status: 'draft' | 'running' | 'completed' | 'failed';
+  createdAt: string;
+  updatedAt: string;
+  tasks: GraphRunTaskRecord[];
+  checkpoints: GraphRunCheckpointRecord[];
+  events: GraphRunEventRecord[];
+}
+
+export interface ConversationMessageSnapshot {
+  id?: string;
+  role: string;
+  content: string;
+  timestamp?: number;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ConversationSnapshot {
+  sessionId?: string | null;
+  createdAt?: number | null;
+  userId?: string | null;
+  gmiInstanceId?: string | null;
+  activePersonaId?: string | null;
+  currentLanguage?: string | null;
+  messageCount?: number;
+  lastActiveAt?: number | null;
+  messages: ConversationMessageSnapshot[];
+  sessionMetadata?: Record<string, unknown>;
+  config?: Record<string, unknown>;
+}
+
+export interface MemoryStatsResponse {
+  connected: boolean;
+  episodic: { count: number; newest?: number };
+  semantic: { count: number };
+  procedural: { count: number };
+  working: { tokens: number; maxTokens: number; activeSessions?: number };
+}
+
+export interface MemoryTimelineEntry {
+  timestamp: number;
+  operation: string;
+  category: string;
+  content: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface MemoryTimelineResponse {
+  connected: boolean;
+  timeline: MemoryTimelineEntry[];
+}
+
+export interface MemoryEntryRecord {
+  id: string;
+  content: string;
+  confidence: number;
+  timestamp: number;
+  source: string;
+  tags: string[];
+}
+
+export interface MemoryEntriesResponse {
+  connected?: boolean;
+  episodic: MemoryEntryRecord[];
+  semantic: MemoryEntryRecord[];
+  procedural: MemoryEntryRecord[];
+}
+
+export interface WorkingMemorySnapshot {
+  connected: boolean;
+  tokens: number;
+  maxTokens: number;
+  activeTurns: number;
+  summarizedTurns: number;
+  rollingSummary: string;
+  activeSessions?: number;
+  slotCount?: number;
+  slotCapacity?: number;
+  slotUtilization?: number;
+  summaryChainNodes?: number;
+  compactedMessages?: number;
+  strategy?: string;
+  transparencyReport?: string;
+}
+
 export interface TaskOutcomeWindowEntry {
   status: "success" | "partial" | "failed";
   score: number;
@@ -562,7 +774,7 @@ class AgentOSClient {
 	 * Request extension installation by package name.
 	 * Note: server currently invalidates cache only (placeholder).
 	 */
-  async installExtension(packageName: string): Promise<void> {
+  async installExtension(packageName: string): Promise<ExtensionInstallResponse> {
     const response = await fetch(`${this.baseUrl}/api/agentos/extensions/install`, {
       method: 'POST',
       headers: {
@@ -574,6 +786,8 @@ class AgentOSClient {
     if (!response.ok) {
       throw new Error('Failed to install extension');
     }
+
+    return response.json() as Promise<ExtensionInstallResponse>;
   }
 
 	/**
@@ -600,15 +814,20 @@ class AgentOSClient {
     return response.json();
   }
 
-	/** Start an example agency workflow; responses are non-streaming. */
-  async startAgencyWorkflow(input: unknown): Promise<unknown> {
+	/** Start an example agency workflow and return an execution id for the demo stream. */
+  async startAgencyWorkflow(input: unknown): Promise<{
+    status: string;
+    executionId: string;
+    workflowId: string;
+    conversationId: string;
+  }> {
     const response = await fetch(`${this.baseUrl}/api/agentos/agency/workflow/start`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        workflowId: 'research-and-report',
+        workflowId: 'local.research-and-publish',
         input,
         userId: 'agentos-workbench-user'
       }),
@@ -618,7 +837,12 @@ class AgentOSClient {
       throw new Error('Failed to start agency workflow');
     }
 
-    return response.json();
+    return response.json() as Promise<{
+      status: string;
+      executionId: string;
+      workflowId: string;
+      conversationId: string;
+    }>;
   }
 
   // Diagnostics
@@ -840,6 +1064,56 @@ class AgentOSClient {
     }
     return response.json() as Promise<ConversationHistoryResponse>;
   }
+
+  async getRuntimeStatus(): Promise<RuntimeStatusResponse> {
+    const response = await fetch(`${this.baseUrl}/api/agentos/runtime`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch runtime status');
+    }
+    return response.json() as Promise<RuntimeStatusResponse>;
+  }
+
+  async listGraphRuns(): Promise<GraphRunRecord[]> {
+    const response = await fetch(`${this.baseUrl}/api/agentos/graph-runs`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch graph runs');
+    }
+    return response.json() as Promise<GraphRunRecord[]>;
+  }
+
+  async getGraphRun(runId: string): Promise<GraphRunRecord> {
+    const response = await fetch(`${this.baseUrl}/api/agentos/graph-runs/${encodeURIComponent(runId)}`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch graph run');
+    }
+    return response.json() as Promise<GraphRunRecord>;
+  }
+
+  async restoreGraphRunCheckpoint(runId: string, checkpointId: string): Promise<GraphRunRecord> {
+    const response = await fetch(
+      `${this.baseUrl}/api/agentos/graph-runs/${encodeURIComponent(runId)}/checkpoints/${encodeURIComponent(checkpointId)}/restore`,
+      {
+        method: 'POST',
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to restore graph-run checkpoint');
+    }
+    return response.json() as Promise<GraphRunRecord>;
+  }
+
+  async forkGraphRunCheckpoint(runId: string, checkpointId: string): Promise<Record<string, unknown>> {
+    const response = await fetch(
+      `${this.baseUrl}/api/agentos/graph-runs/${encodeURIComponent(runId)}/checkpoints/${encodeURIComponent(checkpointId)}/fork`,
+      {
+        method: 'POST',
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to fork graph-run checkpoint');
+    }
+    return response.json() as Promise<Record<string, unknown>>;
+  }
 }
 
 export const agentosClient = new AgentOSClient();
@@ -862,6 +1136,7 @@ export const executeTool = agentosClient.executeTool.bind(agentosClient);
 export const getGuardrails = agentosClient.getGuardrails.bind(agentosClient);
 export const configureGuardrails = agentosClient.configureGuardrails.bind(agentosClient);
 export const getConversationHistory = agentosClient.getConversationHistory.bind(agentosClient);
+export const getRuntimeStatus = agentosClient.getRuntimeStatus.bind(agentosClient);
 export const startAgencyWorkflow = agentosClient.startAgencyWorkflow.bind(agentosClient);
 export const getLlmStatus = agentosClient.getLlmStatus.bind(agentosClient);
 export const getAvailableModels = agentosClient.getAvailableModels.bind(agentosClient);
@@ -895,8 +1170,10 @@ export interface GuardrailConfigResponse {
 }
 
 export interface ConversationHistoryResponse {
-  conversation: Record<string, unknown> | null;
+  conversation: ConversationSnapshot | null;
+  connected?: boolean;
   unsupported?: boolean;
+  error?: string;
 }
 
 /** Agency execution record from the API */
@@ -1178,10 +1455,10 @@ export async function disableSkill(name: string): Promise<void> {
  * the working memory token usage.  Returns `null` on network/server error
  * so callers can gracefully degrade.
  */
-export async function getMemoryStats(): Promise<Record<string, unknown> | null> {
+export async function getMemoryStats(): Promise<MemoryStatsResponse | null> {
   const res = await fetch(`${resolveWorkbenchApiBaseUrl()}/api/agentos/memory/stats`);
   if (!res.ok) return null;
-  return res.json();
+  return res.json() as Promise<MemoryStatsResponse>;
 }
 
 /**
@@ -1191,13 +1468,13 @@ export async function getMemoryStats(): Promise<Record<string, unknown> | null> 
  *                recorded after this timestamp are returned.
  * @returns Array of timeline event objects, or an empty array on error.
  */
-export async function getMemoryTimeline(since?: number): Promise<unknown[]> {
+export async function getMemoryTimeline(since?: number): Promise<MemoryTimelineResponse | null> {
   const url = since
     ? `${resolveWorkbenchApiBaseUrl()}/api/agentos/memory/timeline?since=${since}`
     : `${resolveWorkbenchApiBaseUrl()}/api/agentos/memory/timeline`;
   const res = await fetch(url);
-  if (!res.ok) return [];
-  return res.json();
+  if (!res.ok) return null;
+  return res.json() as Promise<MemoryTimelineResponse>;
 }
 
 /**
@@ -1208,13 +1485,13 @@ export async function getMemoryTimeline(since?: number): Promise<unknown[]> {
  * @returns Category array, working-memory object, or full store object.
  *          Returns an empty fallback (`[]` or `{}`) on error.
  */
-export async function getMemoryEntries(type?: string): Promise<unknown> {
+export async function getMemoryEntries(type?: string): Promise<MemoryEntriesResponse | MemoryEntryRecord[] | WorkingMemorySnapshot | {}> {
   const url = type
     ? `${resolveWorkbenchApiBaseUrl()}/api/agentos/memory/entries?type=${type}`
     : `${resolveWorkbenchApiBaseUrl()}/api/agentos/memory/entries`;
   const res = await fetch(url);
   if (!res.ok) return type ? [] : {};
-  return res.json();
+  return res.json() as Promise<MemoryEntriesResponse | MemoryEntryRecord[] | WorkingMemorySnapshot>;
 }
 
 /**
@@ -1223,10 +1500,10 @@ export async function getMemoryEntries(type?: string): Promise<unknown> {
  * @returns Working memory object with token counts and rolling summary,
  *          or `null` on error.
  */
-export async function getWorkingMemory(): Promise<Record<string, unknown> | null> {
+export async function getWorkingMemory(): Promise<WorkingMemorySnapshot | null> {
   const res = await fetch(`${resolveWorkbenchApiBaseUrl()}/api/agentos/memory/working`);
   if (!res.ok) return null;
-  return res.json();
+  return res.json() as Promise<WorkingMemorySnapshot>;
 }
 
 /**
@@ -1241,4 +1518,57 @@ export async function deleteMemoryEntry(id: string): Promise<void> {
   await fetch(`${resolveWorkbenchApiBaseUrl()}/api/agentos/memory/entries/${id}`, {
     method: 'DELETE',
   });
+}
+
+// ---------------------------------------------------------------------------
+// Voice pipeline
+// ---------------------------------------------------------------------------
+
+/**
+ * A single provider entry as returned by the backend `/api/voice/status` route.
+ */
+export interface VoiceProviderStatus {
+  id: string;
+  name: string;
+  configured: boolean;
+  envVar: string;
+}
+
+/**
+ * A live voice session as reported by the runtime.
+ */
+export interface VoiceSessionStatus {
+  id: string;
+  state: string;
+  turns: number;
+  duration: number;
+  transcript: Array<{ speaker: string; text: string }>;
+}
+
+/**
+ * Full response shape of `GET /api/voice/status`.
+ */
+export interface VoiceStatusResponse {
+  providers: {
+    stt: VoiceProviderStatus[];
+    tts: VoiceProviderStatus[];
+    telephony: VoiceProviderStatus[];
+  };
+  sessions: VoiceSessionStatus[];
+}
+
+/**
+ * Fetch voice pipeline provider status and active sessions from the backend.
+ *
+ * Returns a {@link VoiceStatusResponse} describing which STT/TTS/telephony
+ * providers are configured (env vars present) and any currently active sessions.
+ *
+ * @throws When the network request fails or the server returns a non-OK status.
+ */
+export async function getVoiceStatus(): Promise<VoiceStatusResponse> {
+  const res = await fetch(`${resolveWorkbenchApiBaseUrl()}/api/voice/status`);
+  if (!res.ok) {
+    throw new Error(`Voice status request failed: ${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<VoiceStatusResponse>;
 }

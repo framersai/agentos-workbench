@@ -11,6 +11,7 @@ import { WorkflowOverview } from "@/components/WorkflowOverview";
 import EvaluationDashboard from "@/components/EvaluationDashboard";
 import { PlanningDashboard } from "@/components/PlanningDashboard";
 import { MemoryDashboard } from "@/components/MemoryDashboard";
+import { VoicePipelinePanel } from "@/components/VoicePipelinePanel";
 import {
   openAgentOSStream,
   getAvailableModels,
@@ -487,6 +488,7 @@ const LEFT_TABS = [
   { key: "evaluation", label: "Evaluation" },
   { key: "planning", label: "Planning" },
   { key: "memory", label: "Memory" },
+  { key: "voice", label: "Voice" },
 ] as const;
 type LeftTabKey = typeof LEFT_TABS[number]["key"];
 
@@ -1479,6 +1481,7 @@ export default function App() {
                 {leftTab === 'evaluation' && <EvaluationDashboard />}
                 {leftTab === 'planning' && <PlanningDashboard />}
                 {leftTab === 'memory' && <MemoryDashboard />}
+                {leftTab === 'voice' && <VoicePipelinePanel />}
               </div>
             </section>
 
