@@ -22,6 +22,10 @@ import { GraphBuilder } from "@/components/GraphBuilder";
 import { EmergentToolForge } from "@/components/EmergentToolForge";
 import { ChannelsManager } from "@/components/ChannelsManager";
 import { SocialPostComposer } from "@/components/SocialPostComposer";
+import { VoiceCallMonitor } from "@/components/VoiceCallMonitor";
+import { GuardrailEvaluator } from "@/components/GuardrailEvaluator";
+import { ObservabilityDashboard } from "@/components/ObservabilityDashboard";
+import { RagDocumentManager } from "@/components/RagDocumentManager";
 import {
   openAgentOSStream,
   getAvailableModels,
@@ -509,6 +513,10 @@ const LEFT_TABS = [
   { key: "tool-forge", label: "Tool Forge" },
   { key: "channels", label: "Channels" },
   { key: "social", label: "Social" },
+  { key: "call-monitor", label: "Call Monitor" },
+  { key: "guardrail-eval", label: "Guardrail Eval" },
+  { key: "observability", label: "Observability" },
+  { key: "rag-docs", label: "RAG Docs" },
 ] as const;
 type LeftTabKey = typeof LEFT_TABS[number]["key"];
 
@@ -1512,6 +1520,10 @@ export default function App() {
                 {leftTab === 'tool-forge' && <EmergentToolForge />}
                 {leftTab === 'channels' && <ChannelsManager />}
                 {leftTab === 'social' && <SocialPostComposer />}
+                {leftTab === 'call-monitor' && <VoiceCallMonitor />}
+                {leftTab === 'guardrail-eval' && <GuardrailEvaluator />}
+                {leftTab === 'observability' && <ObservabilityDashboard />}
+                {leftTab === 'rag-docs' && <RagDocumentManager />}
               </div>
             </section>
 

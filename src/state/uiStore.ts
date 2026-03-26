@@ -21,7 +21,11 @@ type LeftPanelKey =
   | 'graph-builder'
   | 'tool-forge'
   | 'channels'
-  | 'social';
+  | 'social'
+  | 'call-monitor'
+  | 'guardrail-eval'
+  | 'observability'
+  | 'rag-docs';
 
 interface UiState {
   welcomeTourDismissed: boolean;

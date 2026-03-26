@@ -12,6 +12,7 @@
  */
 
 import { FastifyInstance } from 'fastify';
+import crypto from 'crypto';
 
 // ---------------------------------------------------------------------------
 // Provider catalogs
@@ -185,5 +186,117 @@ export default async function voiceRoutes(fastify: FastifyInstance): Promise<voi
       // The workbench backend exposes an empty list by default.
       sessions: [],
     };
+  });
+
+  // ---------------------------------------------------------------------------
+  // Call history routes
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Demo call store — populated once per process lifetime with stable fake data.
+   * In a production deployment this would query a call recording / CDR service.
+   */
+  const NOW = Date.now();
+  const DEMO_CALLS = [
+    {
+      id: 'call-001',
+      callerId: '+1 (555) 010-0001',
+      startedAt: new Date(NOW - 5 * 60_000).toISOString(),
+      durationSeconds: 142,
+      turnCount: 8,
+      transcriptPreview: 'Hi, I need help resetting my password...',
+      hasRecording: true,
+      sttProvider: 'deepgram',
+      ttsProvider: 'openai-tts',
+      providerChain: ['deepgram', 'openai-stt', 'assemblyai'],
+    },
+    {
+      id: 'call-002',
+      callerId: '+1 (555) 010-0002',
+      startedAt: new Date(NOW - 22 * 60_000).toISOString(),
+      durationSeconds: 87,
+      turnCount: 5,
+      transcriptPreview: 'Can you tell me the business hours?',
+      hasRecording: false,
+      sttProvider: 'openai-stt',
+      ttsProvider: 'elevenlabs',
+      providerChain: ['openai-stt', 'deepgram'],
+    },
+    {
+      id: 'call-003',
+      callerId: '+1 (555) 010-0003',
+      startedAt: new Date(NOW - 60 * 60_000).toISOString(),
+      durationSeconds: 210,
+      turnCount: 14,
+      transcriptPreview: 'I placed an order three days ago...',
+      hasRecording: true,
+      sttProvider: 'deepgram',
+      ttsProvider: 'cartesia',
+      providerChain: ['deepgram', 'assemblyai'],
+    },
+  ];
+
+  const DEMO_TRANSCRIPT = [
+    { speaker: 'Caller', text: 'Hi, I need help resetting my password.',                         timestamp: new Date(NOW - 4 * 60_000).toISOString()   },
+    { speaker: 'Agent',  text: 'Sure! I can help you with that. Can you confirm your email?',    timestamp: new Date(NOW - 3.8 * 60_000).toISOString() },
+    { speaker: 'Caller', text: "Yes it's user@example.com",                                      timestamp: new Date(NOW - 3.5 * 60_000).toISOString() },
+    { speaker: 'Agent',  text: "Thank you. I'll send a reset link to that address now.",         timestamp: new Date(NOW - 3.2 * 60_000).toISOString() },
+    { speaker: 'Caller', text: 'Oh wait — actually',                                             timestamp: new Date(NOW - 3 * 60_000).toISOString(),    bargedIn: true },
+    { speaker: 'Agent',  text: 'Go ahead.',                                                      timestamp: new Date(NOW - 2.9 * 60_000).toISOString() },
+    { speaker: 'Caller', text: "I think the email might be different. Let me check.",            timestamp: new Date(NOW - 2.7 * 60_000).toISOString() },
+    { speaker: 'Agent',  text: "Take your time, I'm here whenever you're ready.",                timestamp: new Date(NOW - 2.5 * 60_000).toISOString() },
+  ];
+
+  /**
+   * GET /api/voice/calls
+   *
+   * Returns a list of historical voice calls ordered newest-first.
+   */
+  fastify.get('/calls', {
+    schema: {
+      description: 'Return historical voice call records',
+      tags: ['Voice'],
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            calls: { type: 'array', items: { type: 'object', additionalProperties: true } },
+          },
+        },
+      },
+    },
+  }, async () => {
+    return { calls: DEMO_CALLS };
+  });
+
+  /**
+   * GET /api/voice/calls/:id/transcript
+   *
+   * Returns the full timestamped transcript for a specific call.
+   */
+  fastify.get<{ Params: { id: string } }>('/calls/:id/transcript', {
+    schema: {
+      description: 'Return the full transcript for a specific voice call',
+      tags: ['Voice'],
+      params: {
+        type: 'object',
+        properties: { id: { type: 'string' } },
+        required: ['id'],
+      },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            transcript: { type: 'array', items: { type: 'object', additionalProperties: true } },
+          },
+        },
+      },
+    },
+  }, async (request) => {
+    // In demo mode all calls share the same transcript.  The id is acknowledged
+    // so the route signature is correct for a real implementation.
+    void request.params.id;
+    void crypto; // referenced to keep the import used
+    return { transcript: DEMO_TRANSCRIPT };
   });
 }

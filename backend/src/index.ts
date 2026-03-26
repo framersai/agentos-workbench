@@ -18,6 +18,9 @@ import workflowRoutes from './routes/workflow';
 import forgeRoutes from './routes/forge';
 import channelRoutes from './routes/channels';
 import socialRoutes from './routes/social';
+import guardrailRoutes from './routes/guardrails';
+import observabilityRoutes from './routes/observability';
+import ragRoutes from './routes/rag';
 import { initializeAgentOS } from './lib/agentos';
 import { config } from 'dotenv';
 config()
@@ -92,6 +95,9 @@ async function main() {
   server.register(forgeRoutes, { prefix: '/api/agency' });
   server.register(channelRoutes, { prefix: '/api/channels' });
   server.register(socialRoutes, { prefix: '/api/social' });
+  server.register(guardrailRoutes, { prefix: '/api/guardrails' });
+  server.register(observabilityRoutes, { prefix: '/api/observability' });
+  server.register(ragRoutes, { prefix: '/api/rag' });
 
   // Health check
   server.get('/health', {
