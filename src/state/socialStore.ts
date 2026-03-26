@@ -1,8 +1,30 @@
 /**
- * socialStore — Zustand store for the SocialPostComposer panel.
+ * @file socialStore.ts
+ * @description Zustand store for the {@link SocialPostComposer} panel.
  *
- * Tracks the current draft post, scheduled/past posts, platform selection,
- * and the adapted per-platform content variants.
+ * State shape:
+ * ```
+ * {
+ *   draftText:          string                -- current draft post body
+ *   selectedPlatforms:  Set<SocialPlatform>   -- checked target platforms
+ *   mediaItems:         MediaItem[]           -- uploaded images / videos
+ *   posts:              PostRecord[]          -- scheduled + published history
+ *   scheduledAt:        number | null         -- epoch ms if schedule mode on
+ *   loading:            boolean               -- history fetch in progress
+ *   error:              string | null         -- last error
+ * }
+ * ```
+ *
+ * Platform metadata ({@link PLATFORM_META}) covers 14 social platforms with:
+ *   - Character limits (280 for Twitter up to 100 000 for blog platforms)
+ *   - Hashtag styles: `inline` | `grouped` (moved to footer) | `none` (stripped)
+ *   - Supported media types: image and/or video
+ *
+ * The {@link adaptForPlatform} function mirrors the backend
+ * `ContentAdaptationEngine` by applying static rules:
+ *   1. Extract hashtags via regex.
+ *   2. Reposition or strip hashtags based on `hashtagStyle`.
+ *   3. Truncate at `charLimit - 1` with trailing ellipsis.
  */
 
 import { create } from 'zustand';
@@ -88,10 +110,18 @@ export const PLATFORM_META: PlatformMeta[] = [
 
 /**
  * Produces a platform-adapted variant of the source text by applying
- * the static rules from ContentAdaptationEngine:
- *   - Truncate at char limit (–3 chars for "…").
- *   - Move hashtags to end if `hashtagStyle === 'grouped'`.
- *   - Strip hashtags if `hashtagStyle === 'none'`.
+ * the static rules from ContentAdaptationEngine.
+ *
+ * Adaptation steps:
+ *   1. Extract all `#hashtag` tokens via regex.
+ *   2. If `hashtagStyle === 'grouped'`: strip inline hashtags, append grouped at end.
+ *   3. If `hashtagStyle === 'none'`: strip all hashtags entirely.
+ *   4. If `hashtagStyle === 'inline'`: leave hashtags in-place.
+ *   5. Truncate to `charLimit - 1` characters, appending ellipsis if needed.
+ *
+ * @param text - The original post text to adapt.
+ * @param meta - Platform metadata containing charLimit, hashtagStyle, etc.
+ * @returns The adapted text variant for the specified platform.
  */
 export function adaptForPlatform(text: string, meta: PlatformMeta): string {
   let adapted = text;
@@ -119,25 +149,44 @@ export function adaptForPlatform(text: string, meta: PlatformMeta): string {
 // Store
 // ---------------------------------------------------------------------------
 
+/** Zustand state + actions for the SocialPostComposer. */
 interface SocialState {
+  /** Current draft post body text. */
   draftText: string;
+  /** Set of checked target platform IDs. */
   selectedPlatforms: Set<SocialPlatform>;
+  /** Uploaded media items (images/videos) attached to the draft. */
   mediaItems: MediaItem[];
+  /** Post history (scheduled + published), newest first. */
   posts: PostRecord[];
+  /** Schedule timestamp in epoch ms, or null for immediate publish. */
   scheduledAt: number | null;
+  /** True while post history is being fetched from backend. */
   loading: boolean;
+  /** Last error message, or null. */
   error: string | null;
 
+  /** Update the draft text. */
   setDraftText: (text: string) => void;
+  /** Toggle a platform on/off in the selection set. */
   togglePlatform: (platform: SocialPlatform) => void;
+  /** Replace the entire platform selection. */
   setSelectedPlatforms: (platforms: SocialPlatform[]) => void;
+  /** Append a media item to the draft. */
   addMedia: (item: MediaItem) => void;
+  /** Remove a media item by ID. */
   removeMedia: (id: string) => void;
+  /** Prepend a new post to history. */
   addPost: (post: PostRecord) => void;
+  /** Patch a post by ID (e.g. update status after publish). */
   updatePost: (id: string, patch: Partial<PostRecord>) => void;
+  /** Replace the full post list (after backend refresh). */
   setPosts: (posts: PostRecord[]) => void;
+  /** Set or clear the schedule timestamp. */
   setScheduledAt: (at: number | null) => void;
+  /** Set the loading flag. */
   setLoading: (loading: boolean) => void;
+  /** Set or clear the error message. */
   setError: (error: string | null) => void;
 }
 

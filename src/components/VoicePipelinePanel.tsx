@@ -1,13 +1,26 @@
 /**
- * VoicePipelinePanel — voice pipeline status and configuration panel.
+ * @file VoicePipelinePanel.tsx
+ * @description Voice pipeline status and configuration panel.
  *
- * Displays three sections:
- *   Providers  — STT / TTS / telephony env-var presence indicators.
- *   Config     — Endpointing mode, barge-in, diarization, language, voice.
- *   Sessions   — Live voice pipeline sessions with state, turns, and transcript.
+ * Sub-tabs:
+ *   **Providers** -- STT / TTS / telephony provider env-var presence indicators.
+ *     Green = configured (env var present), Red = not configured.
+ *     Provider catalogs: Deepgram, OpenAI STT, AssemblyAI, Whisper (STT);
+ *     ElevenLabs, OpenAI TTS, Cartesia, PlayHT (TTS);
+ *     Twilio, Telnyx, Plivo (telephony).
  *
- * All state lives in {@link useVoiceStore}.  The panel fetches live status
- * from `GET /api/voice/status` on mount and can be manually refreshed.
+ *   **Config** -- voice pipeline settings:
+ *     - Endpointing mode: server-vad | client-vad | manual.
+ *     - Barge-in toggle (allow callers to interrupt).
+ *     - Diarization toggle (speaker identification).
+ *     - Language selector.
+ *     - Voice / persona selector.
+ *
+ *   **Sessions** -- live voice pipeline sessions with state, turn count,
+ *     duration, and scrollable transcript.
+ *
+ * All state is managed via {@link useVoiceStore}.  The panel fetches live
+ * status from `GET /api/voice/status` on mount and supports manual refresh.
  */
 
 import { useEffect, useState } from 'react';

@@ -1,9 +1,29 @@
 /**
- * forge routes — emergent tool forge backend endpoints.
+ * @file forge.ts
+ * @description Emergent tool forge backend endpoints.
  *
- * POST /api/agency/forge               — submit a tool forge request.
- * GET  /api/agency/forged-tools        — list all forged tools.
- * POST /api/agency/forged-tools/:id/run — run a forged tool with test input.
+ * Routes:
+ *   `POST /api/agency/forge`
+ *     Body:     `{ description: string, parametersSchema?: string }`
+ *     Response: `{ requestId, status, verdict: JudgeVerdict, tool: ForgedTool | null }`
+ *     Generates a stub implementation, judges it (correctness/safety/efficiency),
+ *     and registers the tool in the Session tier if approved.
+ *
+ *   `GET /api/agency/forged-tools`
+ *     Response: `{ tools: SerializedForgedTool[] }`
+ *     Lists all in-memory forged tools with computed avgLatencyMs and successRate.
+ *
+ *   `POST /api/agency/forged-tools/:id/run`
+ *     Body:     arbitrary JSON input
+ *     Response: tool execution result (200) or error (404/500).
+ *     Evaluates the tool's stub implementation via `new Function()`.
+ *     Tracks callCount, successCount, and totalLatencyMs for usage stats.
+ *
+ * Judge scoring heuristic (dev stub):
+ *   - correctness: 50 + (wordCount * 2), capped at 100.
+ *   - safety: fixed 95 %.
+ *   - efficiency: 60 + wordCount, capped at 100.
+ *   - Approval threshold: correctness >= 60 AND safety >= 80.
  */
 
 import { FastifyInstance } from 'fastify';
@@ -50,6 +70,10 @@ function generateId(): string {
  *
  * In production this would call the LLM to synthesise a real implementation.
  * The stub always returns a descriptive echo that lets the UI exercise all flows.
+ *
+ * @param description - Natural-language description of the desired tool.
+ * @param parametersSchema - Optional JSON Schema string for tool parameters.
+ * @returns A JS function body string that can be evaluated via `new Function()`.
  */
 function generateImplementation(description: string, parametersSchema: string): string {
   return `
@@ -64,7 +88,11 @@ async function run(params) {
 /**
  * Evaluate the stub for safety and completeness, returning a synthetic score.
  *
- * A real judge would invoke an LLM or a static analysis pass.
+ * A real judge would invoke an LLM or a static analysis pass.  This dev stub
+ * uses description word count as a proxy for implementation quality.
+ *
+ * @param description - The tool description to score.
+ * @returns A {@link JudgeVerdict} with synthetic scores (requestId left blank for caller).
  */
 function judgeImplementation(description: string): JudgeVerdict & { toolId: string } {
   const toolId = generateId();
@@ -221,6 +249,10 @@ export default async function forgeRoutes(fastify: FastifyInstance): Promise<voi
 // Serialisation
 // ---------------------------------------------------------------------------
 
+/**
+ * Serialise a {@link ForgedTool} for the API response, computing derived
+ * fields (avgLatencyMs, successRate) from raw counters.
+ */
 function serializeTool(tool: ForgedTool) {
   const avgLatencyMs =
     tool.callCount > 0 ? Math.round(tool.totalLatencyMs / tool.callCount) : 0;

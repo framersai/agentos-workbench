@@ -1,16 +1,30 @@
 /**
- * RagConfigPanel — configure the Retrieval-Augmented Generation (RAG) stack
+ * @file RagConfigPanel.tsx
+ * @description Configure the Retrieval-Augmented Generation (RAG) stack
  * for an agency run.
  *
- * Exposes:
- *   - Vector store selector (in-memory | hnswlib | qdrant)
- *   - Embedding model input
- *   - topK slider (1–20)
- *   - minScore slider (0–1)
- *   - Document sources list (add path / URL + loader type, remove)
- *   - Per-agent access notes (optional freeform text)
+ * Vector store options:
  *
- * Config flows up via {@link onConfigChange}.
+ * | Backend    | Persistence | Best For                       |
+ * |------------|-------------|--------------------------------|
+ * | In-Memory  | Ephemeral   | Dev / small corpora (< 5 k)   |
+ * | HNSWlib    | Local disk  | Medium corpora (5 k -- 500 k) |
+ * | Qdrant     | Remote DB   | Production / large corpora     |
+ *
+ * Retrieval tuning:
+ *   - **topK** (1--20): number of top document chunks per query.
+ *   - **minScore** (0--1): cosine-similarity floor for inclusion.
+ *
+ * Document sources support three loaders:
+ *   - `markdown` -- local `.md` files.
+ *   - `web`      -- fetches + extracts from a URL.
+ *   - `pdf`      -- local PDF extraction.
+ *
+ * Optional per-agent access notes let you restrict which agent roles may
+ * query the RAG index (e.g. "Only the researcher role may access the legal
+ * documents index.").
+ *
+ * Config flows upward via {@link RagConfigPanelProps.onConfigChange}.
  */
 
 import { useState } from 'react';
@@ -21,12 +35,19 @@ import { HelpTooltip } from '@/components/ui/HelpTooltip';
 // Types
 // ---------------------------------------------------------------------------
 
+/** Supported vector store backends for the RAG pipeline. */
 export type VectorStoreKind = 'in-memory' | 'hnswlib' | 'qdrant';
+
+/** Supported document loaders for indexing sources. */
 export type DocumentLoader = 'markdown' | 'web' | 'pdf';
 
+/** A single document source added to the RAG index. */
 export interface DocumentSource {
+  /** UUID generated client-side via `crypto.randomUUID()`. */
   id: string;
+  /** Local file path or remote URL to index. */
   pathOrUrl: string;
+  /** How to parse this source (markdown, web, or pdf). */
   loader: DocumentLoader;
 }
 

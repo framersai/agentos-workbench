@@ -1,19 +1,33 @@
 /**
- * LiveHITLQueue — real-time Human-in-the-Loop approval queue.
+ * @file LiveHITLQueue.tsx
+ * @description Real-time Human-in-the-Loop (HITL) approval queue.
  *
- * Replaces the static mock data in {@link HumanInteractionDashboard} with
- * live data from the Zustand {@link useHitlStore}, which polls
- * `GET /api/agency/approvals` every 5 s.
+ * Approval flow:
+ * ```
+ *   Agent requests action
+ *     -> backend enqueues PendingApprovalItem
+ *       -> frontend polls GET /api/agency/approvals every 5 s (via hitlStore)
+ *         -> human reviews in this panel
+ *           -> Approve / Reject / Modify
+ *             -> POST /api/agency/approvals/:id/decide
+ *               -> item removed from pending, added to local history
+ * ```
  *
  * Tabs:
- *   Pending  — list of items awaiting a human decision
- *   History  — local log of decisions made in this browser session
+ *   **Pending**  -- items awaiting a human decision, colour-coded by severity
+ *   (critical=rose, high=amber, medium=sky, low=muted).
+ *   **History**  -- local log of decisions made in this browser session
+ *   (capped at 50 entries in {@link useHitlStore}).
  *
- * Each pending item exposes:
- *   - Type, agent, action, description, severity, timestamp
- *   - Expand context payload
- *   - Approve / Reject buttons (POST to `/api/agency/approvals/:id/decide`)
- *   - "Approve with modifications" expandable textarea
+ * Each pending card provides:
+ *   - Type badge, agent ID, action label, description, severity badge
+ *   - Expandable context payload (raw JSON)
+ *   - "Irreversible" warning when `reversible === false`
+ *   - Approve / Reject buttons
+ *   - "Modify" toggle for approve-with-modifications via textarea
+ *
+ * Polling starts on mount via {@link useHitlStore.startPolling} and stops
+ * on unmount via {@link useHitlStore.stopPolling}.
  */
 
 import { useEffect, useState } from 'react';

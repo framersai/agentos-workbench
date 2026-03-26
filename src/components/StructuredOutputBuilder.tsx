@@ -1,15 +1,26 @@
 /**
- * StructuredOutputBuilder — JSON schema definition UI for structured agent output.
+ * @file StructuredOutputBuilder.tsx
+ * @description JSON schema definition UI for constraining structured agent output.
  *
- * Features:
- *   - Toggle: "Require structured JSON output"
- *   - Template picker (QA, classification, extraction, report, custom)
- *     — each pre-fills a starting schema
- *   - Editable JSON textarea with live syntax validation
- *   - Schema description field (appended to the agent system prompt)
- *   - Preview panel showing a parsed example that matches the schema
+ * When enabled, the agent is instructed to return JSON conforming to the user's
+ * schema.  The builder supports five templates that pre-fill common patterns:
  *
- * Config flows up via {@link onConfigChange}.
+ * | Template       | Purpose                                  |
+ * |----------------|------------------------------------------|
+ * | Q&A            | Answer + confidence + sources             |
+ * | Classification | Label + score + alternatives              |
+ * | Extraction     | Entity list with spans + summary          |
+ * | Report         | Title + sections + recommendations        |
+ * | Custom         | Blank schema for freeform use             |
+ *
+ * Each template provides both a JSON Schema object and a matching example
+ * output.  The textarea runs live JSON syntax validation via
+ * {@link validateJson} and shows a green/red indicator.
+ *
+ * The `description` field is appended to the agent system prompt as a
+ * schema hint so the model understands the required output structure.
+ *
+ * Config flows upward via {@link StructuredOutputBuilderProps.onConfigChange}.
  */
 
 import { useEffect, useState } from 'react';
@@ -20,10 +31,15 @@ import { CheckCircle2, XCircle } from 'lucide-react';
 // Types
 // ---------------------------------------------------------------------------
 
+/** Configuration emitted by {@link StructuredOutputBuilder}. */
 export interface StructuredOutputConfig {
+  /** Whether to enforce structured JSON output from the agent. */
   enabled: boolean;
+  /** JSON Schema source (stringified). Validated on every keystroke. */
   schema: string;
+  /** Human-readable description injected into the agent system prompt. */
   description: string;
+  /** Which template was used as the starting point. */
   templateKey: TemplateKey;
 }
 
@@ -193,7 +209,11 @@ const DEFAULT_CONFIG: StructuredOutputConfig = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Returns null on valid JSON, or an error message string. */
+/**
+ * Validates a JSON string.
+ * @param text - Raw JSON source to validate.
+ * @returns `null` when the JSON is syntactically valid, or an error message string.
+ */
 function validateJson(text: string): string | null {
   if (!text.trim()) return 'Schema must not be empty.';
   try {

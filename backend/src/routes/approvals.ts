@@ -1,15 +1,23 @@
 /**
  * @file approvals.ts
- * @description Human-in-the-Loop approval queue routes.
+ * @description Human-in-the-Loop (HITL) approval queue routes.
  *
  * Routes:
- *   GET  /api/agency/approvals            — list pending approval items
- *   POST /api/agency/approvals/:id/decide — submit approve / reject decision
+ *   `GET  /api/agency/approvals`            -- list all pending approval items.
+ *     Response: `{ approvals: PendingApprovalItem[] }`
  *
- * The store is in-process and ephemeral; it is seeded with a couple of
- * illustrative items so the LiveHITLQueue panel has data to display
- * immediately during development.  In production this store would be backed
- * by a database row or message queue.
+ *   `POST /api/agency/approvals/:id/decide` -- submit an approve/reject decision.
+ *     Body:     `{ decision: 'approved' | 'rejected', modification?: string }`
+ *     Response: `{ ok: true, id: string, decision: string }` (200)
+ *               `{ error: string }` (404 if not found)
+ *
+ *   `POST /api/agency/approvals`            -- enqueue a new approval (agent runtime).
+ *     Body:     `{ agentId, action, description, severity?, context?, reversible? }`
+ *     Response: `{ id: string }` (201)
+ *
+ * The store is in-process and ephemeral; seeded with demo items for
+ * development.  In production this would be backed by a database or
+ * message queue.  Decision history is capped at 100 entries.
  */
 
 import { FastifyInstance } from 'fastify';

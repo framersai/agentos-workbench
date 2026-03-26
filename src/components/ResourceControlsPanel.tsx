@@ -1,12 +1,25 @@
 /**
- * ResourceControlsPanel — configure resource limits for the agency() call.
+ * @file ResourceControlsPanel.tsx
+ * @description Configure per-run resource limits for the `agency()` call.
  *
- * Exposes number inputs for token/cost/time/call budgets, a radio group for
- * the on-limit-reached behaviour, and a live usage bar when session data is
- * available from the Zustand telemetry store.
+ * Budget controls (all nullable -- null means unlimited):
+ *   - **Max total tokens** -- prompt + completion tokens across the entire run.
+ *   - **Max cost (USD)** -- estimated spend ceiling.
+ *   - **Max duration (seconds)** -- wall-clock time limit.
+ *   - **Max agent calls** -- total individual agent invocations.
+ *   - **Max steps per agent** -- tool-call steps per individual agent.
  *
- * All state flows up via {@link onConfigChange} so the parent can include it
- * in the agency request payload.
+ * On-limit-reached behaviour:
+ *   - `stop`  -- halt execution gracefully.
+ *   - `warn`  -- log a warning, continue running.
+ *   - `error` -- throw and abort the current step.
+ *
+ * When an active telemetry session exists (via {@link useTelemetryStore}),
+ * live {@link UsageBar} progress indicators appear showing tokens consumed
+ * and elapsed time against the configured limits.  The bars change colour
+ * from sky-blue (< 80 %) to amber (80--95 %) to rose (> 95 %).
+ *
+ * All state flows upward via {@link ResourceControlsPanelProps.onConfigChange}.
  */
 
 import { useState } from 'react';
@@ -18,15 +31,27 @@ import { HelpTooltip } from '@/components/ui/HelpTooltip';
 // Types
 // ---------------------------------------------------------------------------
 
+/**
+ * What to do when a budget limit is reached during an agency run.
+ * - `stop`  -- graceful halt.
+ * - `warn`  -- log warning, allow continuation.
+ * - `error` -- throw and abort.
+ */
 export type OnLimitReachedBehaviour = 'stop' | 'warn' | 'error';
 
+/** Budget configuration emitted by {@link ResourceControlsPanel}. */
 export interface ResourceLimitsConfig {
+  /** Max prompt + completion tokens across the run. Null = unlimited. */
   maxTotalTokens: number | null;
+  /** Max estimated cost in USD. Null = unlimited. */
   maxCostUSD: number | null;
-  /** Wall-clock limit in seconds. */
+  /** Wall-clock time limit in seconds. Null = unlimited. */
   maxDurationSec: number | null;
+  /** Max total individual agent invocations. Null = unlimited. */
   maxAgentCalls: number | null;
+  /** Max tool-call steps per individual agent. Null = unlimited. */
   maxStepsPerAgent: number | null;
+  /** Behaviour when any limit is reached. */
   onLimitReached: OnLimitReachedBehaviour;
 }
 

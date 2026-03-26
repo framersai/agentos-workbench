@@ -1,11 +1,29 @@
 /**
- * channels routes — channel connection management endpoints.
+ * @file channels.ts
+ * @description Channel connection management endpoints for all 37 platforms.
  *
- * GET  /api/channels/status           — list all channel statuses.
- * POST /api/channels/:id/connect      — connect a channel.
- * POST /api/channels/:id/disconnect   — disconnect a channel.
- * POST /api/channels/broadcast        — send to multiple channels.
- * POST /api/channels/test-webhook     — test a webhook URL.
+ * Routes:
+ *   `GET  /api/channels/status`
+ *     Response: `{ channels: ChannelRecord[] }`
+ *     Returns the current status for all 37 channels.
+ *
+ *   `POST /api/channels/:id/connect`
+ *     Body:     `{ credentials?: Record<string, string> }`
+ *     Response: `{ ok: true, status: 'connected' }` (200) or `{ error }` (404).
+ *     Merges provided credentials and sets status to 'connected'.
+ *
+ *   `POST /api/channels/:id/disconnect`
+ *     Response: `{ ok: true, status: 'disconnected' }` (200).
+ *
+ *   `POST /api/channels/broadcast`
+ *     Body:     `{ text: string, channelIds: string[] }`
+ *     Response: `{ ok, results: Record<id, 'sent'|'not_found'|'not_connected'>, sentAt }`
+ *     Sends a message to each specified channel that is currently connected.
+ *
+ *   `POST /api/channels/test-webhook`
+ *     Body:     `{ url: string, payload: string }` (payload must be valid JSON)
+ *     Response: `{ ok, status, statusText, body }` (200) or `{ error }` (400/502).
+ *     Forwards the JSON payload to the given URL with a 10 s timeout.
  */
 
 import { FastifyInstance } from 'fastify';

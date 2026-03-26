@@ -1,14 +1,25 @@
 /**
- * Voice pipeline status routes.
+ * @file voice.ts
+ * @description Voice pipeline status and call history routes.
  *
- * Exposes `GET /api/voice/status` — returns:
- *   - Provider availability maps (STT / TTS / telephony) derived from env-var presence.
- *   - Active voice session list (empty in the workbench context; populated by a live
- *     Wunderland CLI voice runtime when one is attached).
+ * Routes:
+ *   `GET /api/voice/status`
+ *     Response: `{ providers: { stt, tts, telephony }, sessions: [] }`
+ *     Inspects `process.env` to determine which voice providers are configured.
+ *     Does NOT require external service calls -- safe to call at any time.
  *
- * The route does **not** require any external service calls; it only inspects
- * `process.env` to determine which providers are configured, making it safe to
- * call at any time regardless of whether the voice pipeline is running.
+ *   `GET /api/voice/calls`
+ *     Response: `{ calls: DemoCallRecord[] }`
+ *     Returns demo call history records (stable per process lifetime).
+ *
+ *   `GET /api/voice/calls/:id/transcript`
+ *     Response: `{ transcript: TranscriptTurn[] }`
+ *     Returns the full timestamped transcript for a call (demo data in dev).
+ *
+ * Provider catalogs (checked via env var presence):
+ *   STT:       Deepgram, OpenAI STT, AssemblyAI, Whisper
+ *   TTS:       ElevenLabs, OpenAI TTS, Cartesia, PlayHT
+ *   Telephony: Twilio, Telnyx, Plivo
  */
 
 import { FastifyInstance } from 'fastify';

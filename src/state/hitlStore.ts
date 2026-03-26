@@ -1,11 +1,27 @@
 /**
  * @file hitlStore.ts
- * @description Zustand store for Human-in-the-Loop (HITL) approvals queue.
+ * @description Zustand store for the Human-in-the-Loop (HITL) approval queue.
  *
- * Polls `GET /api/agency/approvals` every {@link POLL_INTERVAL_MS} milliseconds
- * and stores pending approvals plus a local decision history.  Components can
- * call {@link submitDecision} to POST a decision and immediately remove the
- * item from the pending list.
+ * State shape:
+ * ```
+ * {
+ *   pending:  PendingApprovalItem[]  -- items awaiting human decision
+ *   history:  ApprovalHistoryItem[]  -- local session log (max 50)
+ *   loading:  boolean                -- true during a poll
+ *   error:    string | null          -- last fetch/submit error
+ *   polling:  boolean                -- true when background interval is active
+ * }
+ * ```
+ *
+ * Polling lifecycle:
+ *   1. `startPolling()` fires `fetchPending()` immediately, then every
+ *      {@link POLL_INTERVAL_MS} (5 000 ms).
+ *   2. `stopPolling()` clears the interval.
+ *   3. `submitDecision(id, decision, modification?)` POSTs to
+ *      `/api/agency/approvals/:id/decide`, optimistically removes the item
+ *      from `pending`, and prepends it to `history`.
+ *
+ * History is capped at 50 entries to prevent unbounded memory growth.
  */
 
 import { create } from 'zustand';
@@ -15,7 +31,10 @@ import { resolveWorkbenchApiBaseUrl } from '@/lib/agentosClient';
 // Types
 // ---------------------------------------------------------------------------
 
+/** Severity level for a pending approval request. Maps to visual colour coding. */
 export type ApprovalSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+/** Possible human decisions for an approval request. */
 export type ApprovalDecision = 'approved' | 'rejected';
 
 export interface PendingApprovalItem {
@@ -41,24 +60,34 @@ export interface ApprovalHistoryItem {
   decidedAt: string;
 }
 
+/** Zustand state + actions for the HITL approval queue. */
 interface HitlState {
   /** Pending approvals fetched from the backend. */
   pending: PendingApprovalItem[];
-  /** Local history of decisions made in this session. */
+  /** Local history of decisions made in this session (max 50). */
   history: ApprovalHistoryItem[];
-  /** True while a poll is in progress. */
+  /** True while a poll request is in-flight. */
   loading: boolean;
-  /** Last fetch error, if any. */
+  /** Last fetch or submit error message, or null. */
   error: string | null;
   /** True when the background poll interval is active. */
   polling: boolean;
 
-  /** Fetch the current pending list once. */
+  /** Fetch the current pending list once from `GET /api/agency/approvals`. */
   fetchPending: () => Promise<void>;
-  /** Start/stop background polling. */
+  /** Start background polling (every {@link POLL_INTERVAL_MS} ms). Idempotent. */
   startPolling: () => void;
+  /** Stop background polling and clear the interval. Idempotent. */
   stopPolling: () => void;
-  /** Submit a decision for an approval item. */
+  /**
+   * Submit a decision for a pending approval item.
+   * POSTs to `/api/agency/approvals/:id/decide` and optimistically
+   * moves the item from pending to history.
+   *
+   * @param id           - The approval item ID.
+   * @param decision     - 'approved' or 'rejected'.
+   * @param modification - Optional text for approve-with-modifications.
+   */
   submitDecision: (
     id: string,
     decision: ApprovalDecision,

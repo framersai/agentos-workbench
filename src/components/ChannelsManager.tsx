@@ -1,21 +1,32 @@
 /**
- * ChannelsManager — 37-channel connection manager.
+ * @file ChannelsManager.tsx
+ * @description 37-channel connection manager with broadcast and webhook testing.
+ *
+ * The 37 channels span 7 categories (social, messaging, video, audio, blog,
+ * community, business) and are sourced from {@link channelsStore}.
+ *
+ * Credential flow:
+ *   1. User clicks a channel card in the Grid tab.
+ *   2. Inline {@link CredentialSheet} opens with per-platform credential fields.
+ *   3. Fields named "secret", "password", or "token" render as password inputs.
+ *   4. Click "Connect" -> `POST /api/channels/:id/connect` with credentials.
+ *   5. On success (or optimistic fallback in dev), status updates to "connected".
  *
  * Sub-tabs:
- *   Grid     — card grid showing all 37 channels with status badges.
- *              Click a card to open the credential config sheet.
- *   Status   — dashboard: connected channels, last message time,
- *              error count, rate-limit remaining.
- *   Log      — recent cross-channel message log.
- *   Broadcast — compose and send to multiple channels at once.
- *   Webhook  — test a webhook endpoint with a custom payload.
+ *   **Grid**      -- card grid with category filter chips and status badges
+ *                    (connected=green, disconnected=grey, error=red, rate-limited=amber).
+ *   **Status**    -- connected-only list with last-message time, error count,
+ *                    and rate-limit remaining.
+ *   **Log**       -- recent cross-channel message log (max 200 via store).
+ *   **Broadcast** -- compose + channel checkbox picker + send to N channels.
+ *   **Webhook**   -- URL input + JSON payload editor + response preview.
  *
  * Backend routes:
- *   GET  /api/channels/status            — channel status list.
- *   POST /api/channels/broadcast         — send to multiple channels.
- *   POST /api/channels/test-webhook      — test a webhook URL.
- *   POST /api/channels/:id/connect       — connect a channel.
- *   POST /api/channels/:id/disconnect    — disconnect a channel.
+ *   `GET  /api/channels/status`            -- all channel statuses.
+ *   `POST /api/channels/:id/connect`       -- connect with credentials.
+ *   `POST /api/channels/:id/disconnect`    -- disconnect.
+ *   `POST /api/channels/broadcast`         -- multi-channel broadcast.
+ *   `POST /api/channels/test-webhook`      -- test a webhook endpoint.
  */
 
 import { useCallback, useEffect, useState } from 'react';

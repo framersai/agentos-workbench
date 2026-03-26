@@ -1,14 +1,27 @@
 /**
- * AgencyStrategyPanel — strategy selection UI for the agency() API.
+ * @file AgencyStrategyPanel.tsx
+ * @description Strategy selection UI for the `agency()` API.
  *
- * Exposes:
- *   - Strategy picker: sequential | parallel | debate | review-loop | hierarchical
- *   - Adaptive override toggle
- *   - Max rounds slider (debate / review-loop only)
- *   - ASCII flow diagram showing the selected strategy topology
+ * Exposes five multi-agent execution strategies, each with a visual ASCII
+ * flow diagram showing the coordination topology:
  *
- * Designed to live inside AgencyManager as a collapsible sub-section,
- * or as a standalone tab. State flows up via {@link onConfigChange}.
+ * | Strategy       | Topology                         | Has rounds? |
+ * |----------------|----------------------------------|-------------|
+ * | Sequential     | A -> B -> C -> Result            | No          |
+ * | Parallel       | A,B,C -> Synthesiser -> Result   | No          |
+ * | Debate         | A <-> B <-> C rounds -> Consensus| Yes         |
+ * | Review Loop    | Producer -> Reviewer -> Approve  | Yes         |
+ * | Hierarchical   | Manager delegates to A,B,C       | No          |
+ *
+ * Additional controls:
+ *   - **Max rounds slider** (1--10): only rendered for debate and review-loop
+ *     strategies where iterative convergence is meaningful.
+ *   - **Adaptive override toggle**: when enabled, the manager agent may switch
+ *     strategies at runtime depending on task complexity.
+ *
+ * Designed to live inside {@link AgencyManager} as a collapsible sub-section,
+ * or as a standalone tab. All config state flows upward via the
+ * {@link AgencyStrategyPanelProps.onConfigChange} callback.
  */
 
 import { useState } from 'react';
@@ -18,6 +31,15 @@ import { HelpTooltip } from '@/components/ui/HelpTooltip';
 // Types
 // ---------------------------------------------------------------------------
 
+/**
+ * Available multi-agent execution strategies.
+ *
+ * - `sequential`    -- agents run one after another in a chain.
+ * - `parallel`      -- all agents run simultaneously, outputs synthesised.
+ * - `debate`        -- agents argue in rounds until consensus (requires maxRounds).
+ * - `review-loop`   -- producer/reviewer cycle (requires maxRounds).
+ * - `hierarchical`  -- manager agent delegates subtasks to a team.
+ */
 export type AgencyStrategy =
   | 'sequential'
   | 'parallel'
@@ -25,15 +47,21 @@ export type AgencyStrategy =
   | 'review-loop'
   | 'hierarchical';
 
+/** Configuration object emitted by {@link AgencyStrategyPanel}. */
 export interface AgencyStrategyConfig {
+  /** The selected multi-agent execution strategy. */
   strategy: AgencyStrategy;
+  /** When true the manager agent may switch strategy per-task at runtime. */
   adaptive: boolean;
-  /** Only applies when strategy is 'debate' or 'review-loop'. */
+  /** Maximum iteration count. Only meaningful for 'debate' or 'review-loop'. */
   maxRounds: number;
 }
 
+/** Props accepted by {@link AgencyStrategyPanel}. */
 export interface AgencyStrategyPanelProps {
+  /** Pre-populated config (falls back to sequential / non-adaptive / 3 rounds). */
   value?: AgencyStrategyConfig;
+  /** Fires on every user interaction with the latest merged config. */
   onConfigChange?: (config: AgencyStrategyConfig) => void;
 }
 
@@ -104,6 +132,7 @@ const DEFAULT_CONFIG: AgencyStrategyConfig = {
 export function AgencyStrategyPanel({ value, onConfigChange }: AgencyStrategyPanelProps) {
   const [config, setConfig] = useState<AgencyStrategyConfig>(value ?? DEFAULT_CONFIG);
 
+  /** Merge a partial patch into config, update local state, and notify parent. */
   const update = (patch: Partial<AgencyStrategyConfig>) => {
     const next = { ...config, ...patch };
     setConfig(next);

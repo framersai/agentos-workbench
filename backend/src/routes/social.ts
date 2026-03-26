@@ -1,9 +1,27 @@
 /**
- * social routes — multi-platform social post publishing endpoints.
+ * @file social.ts
+ * @description Multi-platform social post publishing endpoints.
  *
- * POST /api/social/compose   — publish a post immediately.
- * POST /api/social/schedule  — schedule a post for future publication.
- * GET  /api/social/posts     — retrieve post history.
+ * Routes:
+ *   `POST /api/social/compose`
+ *     Body:     `{ text, platforms, variants?, mediaUrls? }`
+ *     Response: `{ ok, postId, status: 'published', publishedAt, platforms }`
+ *     Immediately publishes a post (in dev, records it as published without
+ *     actually calling platform APIs).
+ *
+ *   `POST /api/social/schedule`
+ *     Body:     `{ text, platforms, scheduledAt, variants?, mediaUrls? }`
+ *     Response: `{ ok, postId, status: 'scheduled', scheduledAt, platforms }`
+ *     Schedules a post for future publication.  In production, a cron service
+ *     would pick up scheduled posts and publish them at the specified time.
+ *
+ *   `GET /api/social/posts`
+ *     Query:    `?status=<PostStatus>&limit=<number>`
+ *     Response: `{ posts: PostRecord[], total: number }`
+ *     Retrieves post history with optional status filter and limit.
+ *
+ * The in-memory post store persists across requests within a server process.
+ * Posts are stored newest-first via `unshift()`.
  */
 
 import { FastifyInstance } from 'fastify';

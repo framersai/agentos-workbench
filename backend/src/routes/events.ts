@@ -2,26 +2,34 @@
  * @file events.ts
  * @description Server-Sent Events (SSE) event bus route for the AgentOS Workbench.
  *
- * Exposes `GET /events` which keeps a persistent SSE connection open.
- * All connected clients receive real-time broadcast messages from the shared
- * {@link eventBroadcaster} singleton.
+ * Routes:
+ *   `GET /events` -- persistent SSE connection.  Clients stay connected
+ *     indefinitely.  Heartbeat `: ping\n\n` every 20 s keeps proxies open.
+ *     Initial event: `{ event: '__connected__', data: { message, ts } }`.
+ *
+ *   `POST /events/emit` -- broadcast a custom event to all connected SSE clients.
+ *     Body:     `{ event: string, data: unknown }`
+ *     Response: `{ ok: true, clients: number }`
  *
  * Event envelope format (JSON in SSE data field):
  * ```
  * data: {"event":"hitl:approval-needed","data":{...}}
  * ```
  *
- * Supported events broadcast by the server:
- *   - `voice:transcript`        — live transcription update
- *   - `hitl:approval-needed`    — new HITL approval request
- *   - `forge:verdict`           — tool forge judge verdict
- *   - `channel:message`         — incoming channel message
- *   - `agency:agent-start`      — agency sub-agent started
- *   - `agency:agent-end`        — agency sub-agent finished
- *   - `error`                   — server-side error notification
+ * Supported event types:
+ *   - `voice:transcript`        -- live transcription update
+ *   - `hitl:approval-needed`    -- new HITL approval request
+ *   - `forge:verdict`           -- tool forge judge verdict
+ *   - `channel:message`         -- incoming channel message
+ *   - `agency:agent-start`      -- agency sub-agent started
+ *   - `agency:agent-end`        -- agency sub-agent finished
+ *   - `error`                   -- server-side error notification
  *
- * The frontend connects via {@link EventSource} and the {@link eventBus}
- * singleton in `src/lib/eventBus.ts`.
+ * Demo heartbeat:
+ *   When at least one client is connected, the server emits synthetic events
+ *   every 4 s so the UI can exercise live mode during development.
+ *
+ * The frontend connects via {@link EventSource} and the `useEventBus` hook.
  */
 
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';

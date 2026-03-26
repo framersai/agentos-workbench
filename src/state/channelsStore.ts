@@ -1,9 +1,31 @@
 /**
- * channelsStore — Zustand store for the ChannelsManager panel.
+ * @file channelsStore.ts
+ * @description Zustand store for the {@link ChannelsManager} panel.
  *
- * Tracks connected/disconnected status for each of the 37 supported
- * channel platforms, recent cross-channel message logs, broadcast history,
- * and per-channel configuration values.
+ * State shape:
+ * ```
+ * {
+ *   channels:  ChannelInfo[]      -- 37 platform entries with status + credentials
+ *   messages:  ChannelMessage[]   -- cross-channel message log (max 200)
+ *   loading:   boolean            -- true during status fetch
+ *   error:     string | null      -- last fetch error
+ * }
+ * ```
+ *
+ * The 37 channels span 7 categories:
+ *   - Social (9):    twitter, linkedin, facebook, instagram, threads, pinterest, snapchat, bluesky, mastodon
+ *   - Messaging (9): discord, slack, telegram, whatsapp, line, wechat, viber, signal, matrix
+ *   - Video (5):     youtube, tiktok, twitch, vimeo, rumble
+ *   - Blog (6):      devto, hashnode, medium, wordpress, ghost, substack
+ *   - Community (4): reddit, farcaster, lemmy, nostr
+ *   - Business (4):  googlebusiness, gmb, shopify, hubspot
+ *
+ * Each channel holds a `credentials: Record<string, string>` map keyed by
+ * the required fields for that platform (e.g. `botToken`, `apiKey`, etc.).
+ * Credential fields with names containing "secret", "password", or "token"
+ * are rendered as password inputs in the UI.
+ *
+ * Messages are capped at 200 entries via `addMessage()`.
  */
 
 import { create } from 'zustand';
@@ -116,17 +138,28 @@ const INITIAL_CHANNELS: ChannelInfo[] = [
 // Store
 // ---------------------------------------------------------------------------
 
+/** Zustand state + actions for the ChannelsManager. */
 interface ChannelsState {
+  /** All 37 channel entries with status, credentials, and metrics. */
   channels: ChannelInfo[];
+  /** Cross-channel message log, newest first (max 200). */
   messages: ChannelMessage[];
+  /** True while fetching status from the backend. */
   loading: boolean;
+  /** Last fetch error message, or null. */
   error: string | null;
 
+  /** Replace the full channels list (after backend refresh). */
   setChannels: (channels: ChannelInfo[]) => void;
+  /** Patch a single channel by ID (status, credentials, etc.). */
   updateChannel: (id: string, patch: Partial<ChannelInfo>) => void;
+  /** Prepend a message to the log (capped at 200). */
   addMessage: (msg: ChannelMessage) => void;
+  /** Replace the full message log. */
   setMessages: (msgs: ChannelMessage[]) => void;
+  /** Set the loading flag. */
   setLoading: (loading: boolean) => void;
+  /** Set or clear the error message. */
   setError: (error: string | null) => void;
 }
 

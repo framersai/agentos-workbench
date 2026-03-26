@@ -1,12 +1,21 @@
 /**
- * CapabilityDiscoveryBrowser — browse and search discovered capabilities.
+ * @file CapabilityDiscoveryBrowser.tsx
+ * @description Browse and search discovered capabilities from the three-tier
+ * discovery engine.
  *
- * Features:
- *   - Search input (calls GET /api/agency/capabilities?query=…)
- *   - Results list: name, kind (tool/skill/extension), description, tier
- *   - Click to expand: full schema, usage example, dependencies
- *   - "Assign to agent" button appends capability to an agency's tool list
- *   - Filter chips for kind and category
+ * Discovery tiers (matches {@link packages/agentos/src/discovery/}):
+ *   - **Tier 0**: always-visible category summaries (~150 tokens).
+ *   - **Tier 1**: top-5 semantic matches from search (~200 tokens).
+ *   - **Tier 2**: full input schemas for selected capabilities (~1500 tokens).
+ *
+ * Search debouncing:
+ *   A 350 ms debounce via `setTimeout` ref prevents excessive API calls on
+ *   fast typing.  The debounce fires `GET /api/agency/capabilities?query=&kind=`.
+ *
+ * Assignment logic:
+ *   Clicking "Assign to agency" appends the capability's ID to the active
+ *   agency's `metadata.capabilities[]` array via {@link useSessionStore.updateAgency}.
+ *   Already-assigned items are visually dimmed (opacity-60).
  *
  * Falls back to an empty state when the backend route is unavailable.
  */

@@ -2,15 +2,29 @@
  * @file discovery.ts
  * @description Capability discovery browser routes.
  *
- * Routes:
- *   GET /api/agency/capabilities?query=&kind=&category=
+ * Route:
+ *   `GET /api/agency/capabilities?query=&kind=&category=&limit=`
  *
- * Aggregates tools, skills, and extensions from the existing registry catalog
- * into a unified CapabilityItem list.  Applies optional keyword search and
- * kind/category filters.  Results are sorted by tier then alphabetically.
+ *   Query params:
+ *     - `query`    -- free-text keyword filter (optional).
+ *     - `kind`     -- one of: tool | skill | extension | channel (optional).
+ *     - `category` -- category string filter (optional).
+ *     - `limit`    -- max results, default 50, max 200 (optional).
+ *
+ *   Response: `{ capabilities: CapabilityItem[], total: number }`
+ *
+ * Scoring algorithm ({@link keywordScore}):
+ *   Exact name match = 100, starts-with = 80, name-contains = 60,
+ *   description-contains = 30, tag-contains = 20, no match = 0.
+ *   Results are sorted by score descending, then tier ascending.
+ *
+ * Tier assignment:
+ *   - Tools default to tier 1.
+ *   - Skills: tier 0 if verified, else tier 1.
+ *   - Extensions: tier 0 if verified, else tier 2.
  *
  * This is a lightweight alternative to the full CapabilityDiscoveryEngine
- * in packages/agentos — it works without the HNSW vector index so the
+ * in `packages/agentos` -- it works without the HNSW vector index so the
  * workbench backend has no extra dependencies.
  */
 
@@ -46,8 +60,19 @@ interface CapabilityItem {
 // ---------------------------------------------------------------------------
 
 /**
- * Naive keyword score — higher = better match.
- * Returns 0 if no match.
+ * Naive keyword relevance scorer for capability search.
+ *
+ * Scoring tiers (higher = better match):
+ *   - 100: exact name match
+ *   -  80: name starts with query
+ *   -  60: name contains query
+ *   -  30: description contains query
+ *   -  20: tags contain query
+ *   -   0: no match (item excluded from results)
+ *
+ * @param item  - The capability to score.
+ * @param query - Lowercase search query from the user.
+ * @returns A relevance score (0 = no match).
  */
 function keywordScore(item: CapabilityItem, query: string): number {
   if (!query) return 1;

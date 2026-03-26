@@ -1,3 +1,24 @@
+/**
+ * @file GuardrailPackManager.tsx
+ * @description Security guardrail tier selector and pack toggle manager.
+ *
+ * Five named security tiers (from {@link packages/agentos/src/guardrails/SecurityTiers.ts}):
+ *
+ * | Tier       | PII | ML Classifiers | Topicality | Code Safety | Grounding |
+ * |------------|-----|----------------|------------|-------------|-----------|
+ * | Dangerous  |     |                |            |             |           |
+ * | Permissive |     |                |            | X           |           |
+ * | Balanced   | X   |                |            | X           |           |
+ * | Strict     | X   | X              |            | X           |           |
+ * | Paranoid   | X   | X              | X          | X           | X         |
+ *
+ * Selecting a tier pre-fills the pack toggles with defaults from
+ * {@link TIER_PACK_DEFAULTS}.  Individual packs can be overridden after
+ * tier selection.  Config flows upward via {@link GuardrailPackManagerProps.onConfigChange}.
+ *
+ * On mount, the panel fetches runtime guardrail config from
+ * `GET /api/agentos/guardrails` to show the currently active tier.
+ */
 import { useEffect, useMemo, useState } from 'react';
 import { Brain, Code, Search, Shield, Target, type LucideIcon } from 'lucide-react';
 import {

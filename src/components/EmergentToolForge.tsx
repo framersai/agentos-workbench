@@ -1,15 +1,32 @@
 /**
- * EmergentToolForge — tool forging, judging, and registry browser.
+ * @file EmergentToolForge.tsx
+ * @description Tool forging, judging, and registry browser.
  *
- * Sections (sub-tabs):
- *   Forge    — submit a tool description; shows in-progress queue.
- *   Verdicts — judge scores and reasoning for each forged tool.
- *   Registry — 3-tier browser (Session / Agent / Shared) with usage stats.
- *   Test     — select a forged tool, provide JSON input, see output.
+ * Forge pipeline:
+ * ```
+ *   User describes tool in natural language
+ *     -> POST /api/agency/forge
+ *       -> LLM generates implementation (stub in dev)
+ *         -> Judge evaluates: correctness / safety / efficiency scores
+ *           -> approved: tool registered in Session tier
+ *           -> rejected: stub verdict logged
+ * ```
  *
- * Backend routes used:
- *   POST /api/agency/forge           — submit a forge request.
- *   GET  /api/agency/forged-tools    — fetch all forged tools.
+ * Sub-tabs:
+ *   **Forge**     -- textarea for tool description + optional JSON Schema
+ *                    for parameters.  Shows the in-progress forge queue.
+ *   **Verdicts**  -- judge scores (correctness %, safety %, efficiency %)
+ *                    and reasoning text for each forge attempt.
+ *   **Registry**  -- three-tier browser: Session -> Agent -> Shared.
+ *                    Each card shows call count, success rate, avg latency.
+ *                    Promote button advances a tool to the next tier.
+ *   **Test Runner** -- select a forged tool, provide JSON input, run it via
+ *                    `POST /api/agency/forged-tools/:id/run`, see output.
+ *
+ * Backend routes:
+ *   `POST /api/agency/forge`           -- submit a forge request.
+ *   `GET  /api/agency/forged-tools`    -- list all forged tools.
+ *   `POST /api/agency/forged-tools/:id/run` -- execute a tool with test input.
  */
 
 import { useCallback, useEffect, useState } from 'react';

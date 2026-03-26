@@ -1,17 +1,36 @@
 /**
- * SocialPostComposer — multi-platform social post composer and scheduler.
+ * @file SocialPostComposer.tsx
+ * @description Multi-platform social post composer and scheduler.
+ *
+ * Supports 14 platforms with per-platform content adaptation rules
+ * (mirrors the backend {@link ContentAdaptationEngine}):
+ *   - Character limits (280 for Twitter to 100k for blog platforms)
+ *   - Hashtag styles: inline, grouped-at-end, or stripped
+ *   - Media type restrictions (image and/or video)
  *
  * Sub-tabs:
- *   Compose  — rich text area, platform selector, media uploader,
- *              schedule picker, and Post Now / Schedule buttons.
- *   Preview  — side-by-side per-platform preview with char counts and
- *              content adaptation variants.
- *   History  — table of past/scheduled posts with status, platform, date, link.
+ *   **Compose**  -- rich textarea, platform checkbox grid with char-limit
+ *                   labels, drag-and-drop media uploader, schedule toggle
+ *                   with datetime picker, Post Now / Schedule buttons.
+ *   **Preview**  -- side-by-side cards per selected platform showing the
+ *                   adapted text, character usage bar (sky < limit, rose > limit),
+ *                   and hashtag/media metadata.
+ *   **History**  -- chronological list of past/scheduled posts with status
+ *                   badges (draft/scheduled/publishing/published/failed),
+ *                   platform count, timestamps, and "View" link for published posts.
+ *
+ * Media upload:
+ *   Uses `URL.createObjectURL()` for local preview.  Files are sent as
+ *   `mediaUrls` in the publish payload for the backend to handle upload.
+ *
+ * Scheduling:
+ *   When schedule mode is active, the `scheduledAt` epoch is sent to
+ *   `POST /api/social/schedule`.  The datetime input adjusts for timezone offset.
  *
  * Backend routes:
- *   POST /api/social/compose    — immediate publish.
- *   POST /api/social/schedule   — schedule a post.
- *   GET  /api/social/posts      — fetch post history.
+ *   `POST /api/social/compose`    -- immediate publish.
+ *   `POST /api/social/schedule`   -- schedule for future publication.
+ *   `GET  /api/social/posts`      -- fetch post history.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
