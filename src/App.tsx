@@ -26,6 +26,12 @@ import { VoiceCallMonitor } from "@/components/VoiceCallMonitor";
 import { GuardrailEvaluator } from "@/components/GuardrailEvaluator";
 import { ObservabilityDashboard } from "@/components/ObservabilityDashboard";
 import { RagDocumentManager } from "@/components/RagDocumentManager";
+import { HomeDashboard } from "@/components/HomeDashboard";
+import { AgentPlayground } from "@/components/AgentPlayground";
+import { PromptWorkspace } from "@/components/PromptWorkspace";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { CommandPalette } from "@/components/CommandPalette";
+import { eventBus } from "@/lib/eventBus";
 import {
   openAgentOSStream,
   getAvailableModels,
@@ -495,6 +501,9 @@ const DEMO_PERSONA_SESSION_ID = "demo-persona-session";
 const DEMO_AGENCY_ID = "demo-agency";
 const DEMO_AGENCY_SESSION_ID = "demo-agency-session";
 const LEFT_TABS = [
+  { key: "home", label: "Home" },
+  { key: "playground", label: "Playground" },
+  { key: "prompt-workspace", label: "Prompts" },
   { key: "compose", label: "Compose" },
   { key: "personas", label: "Personas" },
   { key: "agency", label: "Agency" },
@@ -526,13 +535,14 @@ export default function App() {
   const setPreferredLeftPanel = useUiStore((s) => s.setPreferredLeftPanel);
   const leftTab: LeftTabKey = LEFT_TABS.some((tab) => tab.key === preferredLeftPanel)
     ? (preferredLeftPanel as LeftTabKey)
-    : "personas";
+    : "home";
   const setLeftTab = useCallback((key: LeftTabKey) => {
     setPreferredLeftPanel(key);
   }, [setPreferredLeftPanel]);
   const [showTour, setShowTour] = useState(false);
   const [showThemePanel, setShowThemePanel] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [storageReady, setStorageReady] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -829,6 +839,43 @@ export default function App() {
     window.addEventListener('agentos:toggle-tour', toggle as EventListener);
     return () => window.removeEventListener('agentos:toggle-tour', toggle as EventListener);
   }, []);
+
+  // Connect the real-time event bus
+  useEffect(() => {
+    try {
+      const baseUrl = import.meta.env.VITE_API_URL?.trim() || 'http://localhost:3001';
+      eventBus.connect(`${baseUrl}/api/events`);
+    } catch {
+      // Non-fatal — event bus is best-effort
+    }
+    return () => {
+      // Keep the bus alive across tab switches — do not disconnect on unmount
+    };
+  }, []);
+
+  // Global keyboard shortcuts:
+  //   Ctrl+K / Cmd+K — open command palette
+  //   Ctrl+1–9       — switch to tab by index
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const ctrl = e.ctrlKey || e.metaKey;
+      if (ctrl && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette((v) => !v);
+        return;
+      }
+      if (ctrl && e.key >= '1' && e.key <= '9') {
+        const idx = Number(e.key) - 1;
+        const tab = LEFT_TABS[idx];
+        if (tab) {
+          e.preventDefault();
+          setLeftTab(tab.key as LeftTabKey);
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [setLeftTab]);
 
   // Settings / About as modals
   const [showSettingsModal, setShowSettingsModal] = useState(false);
@@ -1369,6 +1416,21 @@ export default function App() {
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto pr-1">
+                {leftTab === 'home' && (
+                  <ErrorBoundary label="Home Dashboard">
+                    <HomeDashboard onNavigate={(key) => setLeftTab(key as LeftTabKey)} />
+                  </ErrorBoundary>
+                )}
+                {leftTab === 'playground' && (
+                  <ErrorBoundary label="Agent Playground">
+                    <AgentPlayground />
+                  </ErrorBoundary>
+                )}
+                {leftTab === 'prompt-workspace' && (
+                  <ErrorBoundary label="Prompt Workspace">
+                    <PromptWorkspace />
+                  </ErrorBoundary>
+                )}
                 {leftTab === 'compose' && (
                   activeSession?.targetType === 'agency' ? (
                     <AgencyComposer
@@ -1503,27 +1565,27 @@ export default function App() {
                     <RequestComposer key={activeSessionId || 'compose'} onSubmit={handleSubmit} />
                   )
                 )}
-                {leftTab === 'personas' && <PersonaCatalog />}
-                {leftTab === 'agency' && <AgencyManager />}
-                {leftTab === 'workflows' && <WorkflowOverview />}
-                {leftTab === 'evaluation' && <EvaluationDashboard />}
-                {leftTab === 'planning' && <PlanningDashboard />}
-                {leftTab === 'memory' && <MemoryDashboard />}
-                {leftTab === 'voice' && <VoicePipelinePanel />}
-                {leftTab === 'strategy' && <AgencyStrategyPanel />}
-                {leftTab === 'resources' && <ResourceControlsPanel />}
-                {leftTab === 'schema' && <StructuredOutputBuilder />}
-                {leftTab === 'rag' && <RagConfigPanel />}
-                {leftTab === 'hitl' && <LiveHITLQueue />}
-                {leftTab === 'capabilities' && <CapabilityDiscoveryBrowser />}
-                {leftTab === 'graph-builder' && <GraphBuilder />}
-                {leftTab === 'tool-forge' && <EmergentToolForge />}
-                {leftTab === 'channels' && <ChannelsManager />}
-                {leftTab === 'social' && <SocialPostComposer />}
-                {leftTab === 'call-monitor' && <VoiceCallMonitor />}
-                {leftTab === 'guardrail-eval' && <GuardrailEvaluator />}
-                {leftTab === 'observability' && <ObservabilityDashboard />}
-                {leftTab === 'rag-docs' && <RagDocumentManager />}
+                {leftTab === 'personas' && <ErrorBoundary label="Personas"><PersonaCatalog /></ErrorBoundary>}
+                {leftTab === 'agency' && <ErrorBoundary label="Agency"><AgencyManager /></ErrorBoundary>}
+                {leftTab === 'workflows' && <ErrorBoundary label="Workflows"><WorkflowOverview /></ErrorBoundary>}
+                {leftTab === 'evaluation' && <ErrorBoundary label="Evaluation"><EvaluationDashboard /></ErrorBoundary>}
+                {leftTab === 'planning' && <ErrorBoundary label="Planning"><PlanningDashboard /></ErrorBoundary>}
+                {leftTab === 'memory' && <ErrorBoundary label="Memory"><MemoryDashboard /></ErrorBoundary>}
+                {leftTab === 'voice' && <ErrorBoundary label="Voice"><VoicePipelinePanel /></ErrorBoundary>}
+                {leftTab === 'strategy' && <ErrorBoundary label="Strategy"><AgencyStrategyPanel /></ErrorBoundary>}
+                {leftTab === 'resources' && <ErrorBoundary label="Resources"><ResourceControlsPanel /></ErrorBoundary>}
+                {leftTab === 'schema' && <ErrorBoundary label="Schema"><StructuredOutputBuilder /></ErrorBoundary>}
+                {leftTab === 'rag' && <ErrorBoundary label="RAG"><RagConfigPanel /></ErrorBoundary>}
+                {leftTab === 'hitl' && <ErrorBoundary label="HITL"><LiveHITLQueue /></ErrorBoundary>}
+                {leftTab === 'capabilities' && <ErrorBoundary label="Capabilities"><CapabilityDiscoveryBrowser /></ErrorBoundary>}
+                {leftTab === 'graph-builder' && <ErrorBoundary label="Graph Builder"><GraphBuilder /></ErrorBoundary>}
+                {leftTab === 'tool-forge' && <ErrorBoundary label="Tool Forge"><EmergentToolForge /></ErrorBoundary>}
+                {leftTab === 'channels' && <ErrorBoundary label="Channels"><ChannelsManager /></ErrorBoundary>}
+                {leftTab === 'social' && <ErrorBoundary label="Social"><SocialPostComposer /></ErrorBoundary>}
+                {leftTab === 'call-monitor' && <ErrorBoundary label="Call Monitor"><VoiceCallMonitor /></ErrorBoundary>}
+                {leftTab === 'guardrail-eval' && <ErrorBoundary label="Guardrail Eval"><GuardrailEvaluator /></ErrorBoundary>}
+                {leftTab === 'observability' && <ErrorBoundary label="Observability"><ObservabilityDashboard /></ErrorBoundary>}
+                {leftTab === 'rag-docs' && <ErrorBoundary label="RAG Docs"><RagDocumentManager /></ErrorBoundary>}
               </div>
             </section>
 
@@ -1639,6 +1701,14 @@ export default function App() {
         onRemindLater={() => snoozeWelcomeTour(24)}
       />
       <ImportWizard open={showImport} onClose={() => setShowImport(false)} />
+      <CommandPalette
+        open={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        onNavigate={(key) => {
+          setLeftTab(key as LeftTabKey);
+          setShowCommandPalette(false);
+        }}
+      />
     </div>
   );
 }

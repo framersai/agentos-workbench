@@ -21,6 +21,8 @@ import socialRoutes from './routes/social';
 import guardrailRoutes from './routes/guardrails';
 import observabilityRoutes from './routes/observability';
 import ragRoutes from './routes/rag';
+import eventsRoutes from './routes/events';
+import playgroundRoutes from './routes/playground';
 import { initializeAgentOS } from './lib/agentos';
 import { config } from 'dotenv';
 config()
@@ -98,6 +100,8 @@ async function main() {
   server.register(guardrailRoutes, { prefix: '/api/guardrails' });
   server.register(observabilityRoutes, { prefix: '/api/observability' });
   server.register(ragRoutes, { prefix: '/api/rag' });
+  server.register(eventsRoutes, { prefix: '/api' });
+  server.register(playgroundRoutes, { prefix: '/api/playground' });
 
   // Health check
   server.get('/health', {
