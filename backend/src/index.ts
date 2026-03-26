@@ -14,6 +14,10 @@ import memoryRoutes from './routes/memory.js';
 import voiceRoutes from './routes/voice';
 import approvalsRoutes from './routes/approvals';
 import discoveryRoutes from './routes/discovery';
+import workflowRoutes from './routes/workflow';
+import forgeRoutes from './routes/forge';
+import channelRoutes from './routes/channels';
+import socialRoutes from './routes/social';
 import { initializeAgentOS } from './lib/agentos';
 import { config } from 'dotenv';
 config()
@@ -84,6 +88,10 @@ async function main() {
   server.register(voiceRoutes, { prefix: '/api/voice' });
   server.register(approvalsRoutes, { prefix: '/api/agency' });
   server.register(discoveryRoutes, { prefix: '/api/agency' });
+  server.register(workflowRoutes, { prefix: '/api/agency' });
+  server.register(forgeRoutes, { prefix: '/api/agency' });
+  server.register(channelRoutes, { prefix: '/api/channels' });
+  server.register(socialRoutes, { prefix: '/api/social' });
 
   // Health check
   server.get('/health', {

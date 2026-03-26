@@ -18,6 +18,10 @@ import { StructuredOutputBuilder } from "@/components/StructuredOutputBuilder";
 import { RagConfigPanel } from "@/components/RagConfigPanel";
 import { LiveHITLQueue } from "@/components/LiveHITLQueue";
 import { CapabilityDiscoveryBrowser } from "@/components/CapabilityDiscoveryBrowser";
+import { GraphBuilder } from "@/components/GraphBuilder";
+import { EmergentToolForge } from "@/components/EmergentToolForge";
+import { ChannelsManager } from "@/components/ChannelsManager";
+import { SocialPostComposer } from "@/components/SocialPostComposer";
 import {
   openAgentOSStream,
   getAvailableModels,
@@ -501,6 +505,10 @@ const LEFT_TABS = [
   { key: "rag", label: "RAG" },
   { key: "hitl", label: "HITL" },
   { key: "capabilities", label: "Capabilities" },
+  { key: "graph-builder", label: "Graph Builder" },
+  { key: "tool-forge", label: "Tool Forge" },
+  { key: "channels", label: "Channels" },
+  { key: "social", label: "Social" },
 ] as const;
 type LeftTabKey = typeof LEFT_TABS[number]["key"];
 
@@ -1500,6 +1508,10 @@ export default function App() {
                 {leftTab === 'rag' && <RagConfigPanel />}
                 {leftTab === 'hitl' && <LiveHITLQueue />}
                 {leftTab === 'capabilities' && <CapabilityDiscoveryBrowser />}
+                {leftTab === 'graph-builder' && <GraphBuilder />}
+                {leftTab === 'tool-forge' && <EmergentToolForge />}
+                {leftTab === 'channels' && <ChannelsManager />}
+                {leftTab === 'social' && <SocialPostComposer />}
               </div>
             </section>
 

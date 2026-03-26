@@ -17,7 +17,11 @@ type LeftPanelKey =
   | 'schema'
   | 'rag'
   | 'hitl'
-  | 'capabilities';
+  | 'capabilities'
+  | 'graph-builder'
+  | 'tool-forge'
+  | 'channels'
+  | 'social';
 
 interface UiState {
   welcomeTourDismissed: boolean;
