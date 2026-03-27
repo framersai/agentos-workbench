@@ -321,7 +321,9 @@ async function loadWorkspaceSkills(secretEnvMap: Record<string, string>): Promis
     } satisfies WorkbenchSkillInfo;
   }));
 
-  return skills.filter((skill): skill is WorkbenchSkillInfo => Boolean(skill));
+  return skills.filter(
+    (skill): skill is WorkbenchSkillInfo => skill !== null
+  ) as WorkbenchSkillInfo[];
 }
 
 export async function listWorkbenchSkills(): Promise<WorkbenchSkillInfo[]> {
