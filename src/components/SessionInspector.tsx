@@ -13,12 +13,15 @@ import {
   type AgentOSToolCallRequestChunk,
   type AgentOSResponse
 } from "@/types/agentos";
-import { AlertTriangle, Users, GitBranch, Sparkles } from "lucide-react";
+import { AlertTriangle, Database, GitBranch, RefreshCw, Sparkles, Users } from "lucide-react";
+import { WidgetEmbed } from "./WidgetEmbed";
 import { useSessionStore } from "@/state/sessionStore";
 import { ArtifactViewer } from "@/components/ArtifactViewer";
 import { exportAllData } from "@/lib/dataExport";
 import { clearSessionEvents, deleteSessionRow, persistSessionRow } from "@/lib/storageBridge";
 import { SessionConcurrencyInfo } from "./SessionConcurrencyInfo";
+import { getConversationHistory, type ConversationSnapshot } from "@/lib/agentosClient";
+import { HelpTooltip } from "./ui/HelpTooltip";
 
 const chunkAccent: Record<string, string> = {
   [AgentOSChunkType.TEXT_DELTA]: "border-slate-300 bg-slate-100 text-slate-800 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100",
@@ -69,6 +72,21 @@ function toCount(value: unknown): string {
     return "—";
   }
   return String(Math.max(0, Math.round(value)));
+}
+
+function conversationRoleAccent(role: string): string {
+  switch (role) {
+    case "user":
+      return "border-sky-300/40 bg-sky-500/10 text-sky-200";
+    case "assistant":
+      return "border-emerald-300/40 bg-emerald-500/10 text-emerald-200";
+    case "tool":
+      return "border-purple-300/40 bg-purple-500/10 text-purple-200";
+    case "summary":
+      return "border-amber-300/40 bg-amber-500/10 text-amber-200";
+    default:
+      return "border-slate-300/30 bg-slate-500/10 text-slate-200";
+  }
 }
 
 function renderMetadataUpdate(chunk: AgentOSMetadataUpdateChunk) {
@@ -300,6 +318,38 @@ function renderEventBody(type: AgentOSChunkType | "log", payload: unknown): Reac
   );
 }
 
+/** A segment of parsed content: either plain markdown or an embedded widget. */
+type ContentSegment = { type: "markdown"; content: string } | { type: "widget"; content: string };
+
+/**
+ * Split text on `:::widget\n...\n:::` fenced blocks into alternating markdown
+ * and widget segments.  Segments with only whitespace are dropped.
+ */
+function parseContentSegments(text: string): ContentSegment[] {
+  const segments: ContentSegment[] = [];
+  const pattern = /:::widget\n([\s\S]*?)\n:::/g;
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(text)) !== null) {
+    const before = text.slice(cursor, match.index);
+    if (before.trim().length > 0) {
+      segments.push({ type: "markdown", content: before });
+    }
+    if (match[1].trim().length > 0) {
+      segments.push({ type: "widget", content: match[1] });
+    }
+    cursor = match.index + match[0].length;
+  }
+
+  const tail = text.slice(cursor);
+  if (tail.trim().length > 0) {
+    segments.push({ type: "markdown", content: tail });
+  }
+
+  return segments.length > 0 ? segments : [{ type: "markdown", content: text }];
+}
+
 /**
  * Animated streaming text renderer. It animates towards the provided `text` string.
  */
@@ -364,9 +414,15 @@ function StreamingText({ text, isActive }: { text: string; isActive: boolean }) 
     );
   }
 
+  const segments = parseContentSegments(displayed);
+
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-slate-900 dark:prose-headings:text-slate-100 prose-p:text-slate-800 dark:prose-p:text-slate-200 prose-li:text-slate-800 dark:prose-li:text-slate-200 prose-strong:text-slate-900 dark:prose-strong:text-slate-100 prose-code:text-slate-800 dark:prose-code:text-slate-200 prose-pre:bg-slate-100 prose-pre:text-slate-800 dark:prose-pre:bg-slate-950 dark:prose-pre:text-slate-100">
-      <ReactMarkdown>{displayed}</ReactMarkdown>
+      {segments.map((seg, i) =>
+        seg.type === "widget"
+          ? <WidgetEmbed key={i} html={seg.content} />
+          : <ReactMarkdown key={i}>{seg.content}</ReactMarkdown>
+      )}
       {showCursor && <span className="ml-0.5 inline-block h-4 w-1 animate-pulse bg-sky-500" aria-hidden="true" />}
     </div>
   );
@@ -641,7 +697,12 @@ export function SessionInspector() {
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
+  const [conversationSnapshot, setConversationSnapshot] = useState<ConversationSnapshot | null>(null);
+  const [conversationLoading, setConversationLoading] = useState(false);
+  const [conversationUnsupported, setConversationUnsupported] = useState(false);
+  const [conversationError, setConversationError] = useState<string | null>(null);
   const isAgencySession = session?.targetType === "agency";
+  const sessionId = session?.id ?? null;
   const agencySnapshot =
     isAgencySession && session?.agencyId ? agencySessionsState[session.agencyId] ?? null : null;
   const agencyDefinition =
@@ -688,6 +749,34 @@ export function SessionInspector() {
       void persistSessionRow(latest);
     }
   }, []);
+
+  const loadConversationSnapshot = useCallback(async () => {
+    if (!sessionId) {
+      setConversationSnapshot(null);
+      setConversationUnsupported(false);
+      setConversationError(null);
+      return;
+    }
+
+    setConversationLoading(true);
+    setConversationError(null);
+    try {
+      const response = await getConversationHistory(sessionId);
+      setConversationSnapshot(response.conversation);
+      setConversationUnsupported(Boolean(response.unsupported));
+      setConversationError(response.error ?? null);
+    } catch (error) {
+      setConversationSnapshot(null);
+      setConversationUnsupported(false);
+      setConversationError(error instanceof Error ? error.message : "Failed to load conversation context");
+    } finally {
+      setConversationLoading(false);
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    void loadConversationSnapshot();
+  }, [loadConversationSnapshot]);
 
   // Effect to scroll to bottom on new messages, but only if user hasn't scrolled up
   useEffect(() => {
@@ -779,9 +868,15 @@ export function SessionInspector() {
     return (
       <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900/50">
         <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-white/5">
-          <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">Session timeline</p>
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Output</h2>
+          <div className="flex items-center gap-2">
+            <div>
+              <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">Session timeline</p>
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Output</h2>
+            </div>
+            <HelpTooltip label="Explain session inspector" side="bottom">
+              Review the live event timeline, export traces, inspect persisted conversation context, and manage the
+              current session without leaving the workbench.
+            </HelpTooltip>
           </div>
           <div className="text-xs text-slate-500 dark:text-slate-400"></div>
         </header>
@@ -796,6 +891,14 @@ export function SessionInspector() {
     );
   }
 
+  const conversationMessages = Array.isArray(conversationSnapshot?.messages)
+    ? conversationSnapshot.messages
+    : [];
+  const recentConversationMessages = [...conversationMessages].slice(-4).reverse();
+  const conversationMessageCount = conversationSnapshot?.messageCount ?? conversationMessages.length;
+  const conversationTurnCount = conversationMessages.filter((message) => message.role === "user").length;
+  const conversationLastActiveAt = conversationSnapshot?.lastActiveAt ?? conversationSnapshot?.createdAt ?? null;
+
   return (
     <div className={timelineContainerClass}>
       {showRenameModal && session && (
@@ -809,7 +912,7 @@ export function SessionInspector() {
               className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950"
             />
             <div className="mt-3 flex justify-end gap-2">
-              <button onClick={() => setShowRenameModal(false)} className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300">Cancel</button>
+              <button onClick={() => setShowRenameModal(false)} title="Close the rename dialog without changing the session name." className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300">Cancel</button>
               <button
                 onClick={() => {
                   const nextName = (nameDraft || session.displayName || 'Untitled').trim();
@@ -817,6 +920,7 @@ export function SessionInspector() {
                   persistSessionSnapshot(session.id);
                   setShowRenameModal(false);
                 }}
+                title="Save the new display name for this session."
                 className="rounded-full bg-sky-500 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-600"
               >
                 Save
@@ -831,13 +935,14 @@ export function SessionInspector() {
             <h3 className="mb-2 text-sm font-semibold text-rose-700 dark:text-rose-300">Delete session?</h3>
             <p className="text-sm text-slate-700 dark:text-slate-300">This action cannot be undone.</p>
             <div className="mt-3 flex justify-end gap-2">
-              <button onClick={() => setShowDeleteModal(false)} className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300">Cancel</button>
+              <button onClick={() => setShowDeleteModal(false)} title="Keep this session and close the delete confirmation." className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300">Cancel</button>
               <button
                 onClick={() => {
                   removeSession(session.id);
                   void deleteSessionRow(session.id);
                   setShowDeleteModal(false);
                 }}
+                title="Permanently delete this session and its local persisted state."
                 className="rounded-full bg-rose-600 px-3 py-1 text-xs font-semibold text-white hover:bg-rose-700"
               >
                 Delete
@@ -852,7 +957,7 @@ export function SessionInspector() {
             <h3 className="mb-2 text-sm font-semibold text-slate-900 dark:text-slate-100">Clear history?</h3>
             <p className="text-sm text-slate-700 dark:text-slate-300">This will remove all events from this session.</p>
             <div className="mt-3 flex justify-end gap-2">
-              <button onClick={() => setShowClearModal(false)} className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300">Cancel</button>
+              <button onClick={() => setShowClearModal(false)} title="Close the clear-history dialog without removing any events." className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300">Cancel</button>
               <button
                 onClick={() => {
                   upsertSession({ id: session.id, events: [], status: 'idle' });
@@ -860,6 +965,7 @@ export function SessionInspector() {
                   persistSessionSnapshot(session.id);
                   setShowClearModal(false);
                 }}
+                title="Remove all recorded events from this session while keeping the session entry."
                 className="rounded-full bg-sky-500 px-3 py-1 text-xs font-semibold text-white hover:bg-sky-600"
               >
                 Clear
@@ -869,8 +975,9 @@ export function SessionInspector() {
         </div>
       )}
       <header className="flex items-center justify-between border-b border-slate-200 px-6 py-4 dark:border-white/5">
-        <div>
-          <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">Session timeline</p>
+        <div className="flex items-center gap-2">
+          <div>
+            <p className="text-xs uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">Session timeline</p>
           {!renaming ? (
             <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">{session.displayName}</h2>
           ) : (
@@ -888,16 +995,21 @@ export function SessionInspector() {
               >
                 Save
               </button>
-              <button type="button" onClick={() => setRenaming(false)} className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300">Cancel</button>
+              <button type="button" onClick={() => setRenaming(false)} title="Cancel inline renaming and keep the current session name." className="rounded-full border border-slate-200 px-2 py-0.5 text-xs text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300">Cancel</button>
             </div>
           )}
+          </div>
+          <HelpTooltip label="Explain session inspector" side="bottom">
+            Review live events, export traces, rename sessions, and inspect persisted conversation state for the
+            currently selected run.
+          </HelpTooltip>
         </div>
         <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
           <div className="flex items-center gap-2">
             <div className="relative">
               <select
                 aria-label="Export"
-                title="Export options"
+                title="Export traces, rename the session, or clear/delete local session history."
                 className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] uppercase tracking-[0.35em] text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300"
                 onChange={(e) => {
                   const v = e.target.value; e.currentTarget.selectedIndex = 0; // reset
@@ -929,6 +1041,124 @@ export function SessionInspector() {
         <div className="space-y-2.5">
           {/* Session Concurrency Info */}
           <SessionConcurrencyInfo sessionStatus={session.status} />
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-sm dark:border-white/10 dark:bg-slate-950/70 dark:text-slate-100">
+            <header className="mb-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4 text-sky-500 dark:text-sky-400" />
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.4em] text-slate-500 dark:text-slate-400">Conversation Context</p>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Backend history and persisted state</h3>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadConversationSnapshot()}
+                title="Reload persisted conversation history from the connected backend."
+                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-1 text-[10px] uppercase tracking-[0.25em] text-slate-600 hover:bg-slate-50 dark:border-white/10 dark:text-slate-300"
+              >
+                <RefreshCw className={clsx("h-3 w-3", conversationLoading && "animate-spin")} />
+                Refresh
+              </button>
+            </header>
+
+            {conversationUnsupported ? (
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                This runtime does not expose `getConversationHistory()`, so the workbench can only show the local event timeline.
+              </p>
+            ) : conversationError ? (
+              <div className="rounded-xl border border-rose-300/50 bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+                {conversationError}
+              </div>
+            ) : conversationLoading && !conversationSnapshot ? (
+              <p className="text-xs text-slate-600 dark:text-slate-300">Loading persisted conversation state…</p>
+            ) : conversationSnapshot ? (
+              <div className="space-y-3">
+                <dl className="grid gap-3 text-xs text-slate-600 dark:text-slate-300 sm:grid-cols-2 xl:grid-cols-4">
+                  <div>
+                    <dt className="uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Messages</dt>
+                    <dd className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{conversationMessageCount}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Turns</dt>
+                    <dd className="mt-1 font-semibold text-slate-900 dark:text-slate-100">{conversationTurnCount}</dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Persona</dt>
+                    <dd className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
+                      {conversationSnapshot.activePersonaId ?? session.personaId ?? "—"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Last active</dt>
+                    <dd className="mt-1 font-semibold text-slate-900 dark:text-slate-100">
+                      {conversationLastActiveAt ? new Date(conversationLastActiveAt).toLocaleString() : "—"}
+                    </dd>
+                  </div>
+                </dl>
+
+                <div className="grid gap-2 lg:grid-cols-2">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/5">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Session metadata</p>
+                    <p className="mt-1 text-xs text-slate-700 dark:text-slate-200">
+                      Session: <span className="font-mono">{conversationSnapshot.sessionId ?? session.id}</span>
+                    </p>
+                    <p className="mt-1 text-xs text-slate-700 dark:text-slate-200">
+                      User: <span className="font-mono">{conversationSnapshot.userId ?? "agentos-workbench-user"}</span>
+                    </p>
+                    <p className="mt-1 text-xs text-slate-700 dark:text-slate-200">
+                      Language: <span className="font-mono">{conversationSnapshot.currentLanguage ?? "—"}</span>
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-white/10 dark:bg-white/5">
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">Recent persisted messages</p>
+                    {recentConversationMessages.length > 0 ? (
+                      <div className="mt-2 space-y-2">
+                        {recentConversationMessages.map((message, index) => (
+                          <div key={`${message.id ?? message.timestamp ?? index}-${index}`} className="rounded-lg border border-slate-200 bg-white/70 px-3 py-2 dark:border-white/10 dark:bg-slate-950/60">
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                              <span className={clsx("rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-[0.25em]", conversationRoleAccent(message.role))}>
+                                {message.role}
+                              </span>
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                                {message.timestamp ? new Date(message.timestamp).toLocaleTimeString() : ""}
+                              </span>
+                            </div>
+                            <p className="text-xs leading-relaxed text-slate-700 dark:text-slate-200">
+                              {message.content.length > 220 ? `${message.content.slice(0, 220)}…` : message.content}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">No persisted messages available yet.</p>
+                    )}
+                  </div>
+                </div>
+
+                <details className="rounded-xl border border-slate-200 bg-slate-50/70 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                  <summary className="cursor-pointer select-none text-[10px] uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">
+                    Raw metadata
+                  </summary>
+                  <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-[11px] text-slate-700 dark:text-slate-200">
+                    {JSON.stringify(
+                      {
+                        sessionMetadata: conversationSnapshot.sessionMetadata ?? {},
+                        config: conversationSnapshot.config ?? {},
+                      },
+                      null,
+                      2
+                    )}
+                  </pre>
+                </details>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                No persisted conversation was found for this session yet. The local event timeline below is still available.
+              </p>
+            )}
+          </section>
 
           {isAgencySession && (
             <section className="rounded-2xl border border-slate-200 bg-white p-4 text-slate-900 shadow-lg dark:border-sky-500/40 dark:bg-slate-950/80 dark:text-slate-100">
