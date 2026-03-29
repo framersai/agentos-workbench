@@ -511,7 +511,7 @@ export async function deleteMemoryEntryById(
       const liveStore = live.manager.getStore?.();
       const trace = liveStore?.getTrace?.(id);
       if (trace) {
-        await liveStore.softDelete?.(id);
+        await liveStore?.softDelete?.(id);
         return { ok: true, mode: 'runtime' };
       }
     }

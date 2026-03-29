@@ -1,5 +1,5 @@
 import type { StorageAdapter } from "@framers/sql-storage-adapter/types";
-import { IndexedDbAdapter, type IndexedDbAdapterOptions } from "@framers/sql-storage-adapter/adapters/indexedDbAdapter";
+import { IndexedDbAdapter, type IndexedDbAdapterOptions } from "@framers/sql-storage-adapter";
 
 function locateSqlJsFile(file: string): string {
   if (file.endsWith(".wasm")) {
