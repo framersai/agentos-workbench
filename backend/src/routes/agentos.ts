@@ -741,16 +741,16 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
     },
   }, async (request, reply) => {
     const agentos = await getAgentOS();
-    const getConversationHistory = (agentos as unknown as {
+    const agentosWithHistory = agentos as unknown as {
       getConversationHistory?: (conversationId: string, userId: string) => Promise<unknown>;
-    }).getConversationHistory;
+    };
 
-    if (typeof getConversationHistory !== 'function') {
+    if (typeof agentosWithHistory.getConversationHistory !== 'function') {
       return { conversation: null, unsupported: true };
     }
 
     try {
-      const conversation = await getConversationHistory(
+      const conversation = await agentosWithHistory.getConversationHistory(
         request.params.conversationId,
         request.query.userId || 'agentos-workbench-user'
       );

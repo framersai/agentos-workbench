@@ -1,6 +1,5 @@
 import * as path from 'path';
 import * as dotenv from 'dotenv';
-import { pathToFileURL } from 'node:url';
 import { createWorkbenchCognitiveMemoryFactory } from './workbenchCognitiveMemory';
 import {
   WORKBENCH_RUNTIME_RAG_CHUNK_OVERLAP,
@@ -149,20 +148,8 @@ function buildWorkbenchRagConfig() {
 }
 
 async function createAgentOS(): Promise<AgentOSInstance> {
-  const sourceEntry = path.resolve(__dirname, '../../../../../packages/agentos/src/index.ts');
-  try {
-    const module = await runtimeImport(pathToFileURL(sourceEntry).href);
-    return new module.AgentOS() as AgentOSInstance;
-  } catch {
-    try {
-      const module = await runtimeImport('@framers/agentos');
-      return new module.AgentOS() as AgentOSInstance;
-    } catch {
-      const fallbackEntry = path.resolve(__dirname, '../../../../../packages/agentos/dist/index.js');
-      const module = await runtimeImport(pathToFileURL(fallbackEntry).href);
-      return new module.AgentOS() as AgentOSInstance;
-    }
-  }
+  const module = await runtimeImport('@framers/agentos');
+  return new module.AgentOS() as AgentOSInstance;
 }
 
 export async function getAgentOS(): Promise<AgentOSInstance> {

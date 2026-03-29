@@ -11,7 +11,7 @@ import planningRoutes from './routes/planning';
 import marketplaceRoutes from './routes/marketplace';
 import userRoutes from './routes/user';
 import skillRoutes from './routes/skills';
-import memoryRoutes from './routes/memory.js';
+import memoryRoutes from './routes/memory';
 import voiceRoutes from './routes/voice';
 import approvalsRoutes from './routes/approvals';
 import discoveryRoutes from './routes/discovery';
