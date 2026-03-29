@@ -38,7 +38,7 @@
     "e2e:smoke": "tsx e2e-test.ts"
   },
   "dependencies": {
-    "@framers/agentos": ">=0.1.130",
+    "@framers/agentos": ">=0.1.146",
     "@framers/sql-storage-adapter": "*",
     "@framers/theme-tokens": "^0.1.0",
     "@hookform/resolvers": "^3.6.0",
