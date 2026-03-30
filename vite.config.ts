@@ -152,6 +152,11 @@ export default defineConfig({
         target: backendTarget,
         changeOrigin: true,
         secure: false
+      },
+      "/api/playground": {
+        target: backendTarget,
+        changeOrigin: true,
+        secure: false
       }
     }
   }

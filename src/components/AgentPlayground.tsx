@@ -6,10 +6,10 @@
  * Layout:
  *   Left panel   — agent config (model picker, system instructions, tools,
  *                  agency mode toggle with roster editor)
- *   Center       — chat-style REPL with streaming indicator, collapsible
- *                  tool calls / agent calls / usage / trace sections
- *   Right panel  — quick settings (temperature, maxSteps, maxTokens,
- *                  guardrail tier, cost estimator badge)
+ *   Right area   — inline quick-settings bar (temperature, maxSteps,
+ *                  maxTokens, guardrail tier) above chat REPL with
+ *                  streaming indicator, collapsible tool calls / agent
+ *                  calls / usage / trace sections, and prompt input
  *
  * Backend: `POST /api/playground/run` (SSE stream).
  */
@@ -351,8 +351,9 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
 /**
  * AgentPlayground — interactive REPL for testing agent configs.
  *
- * Three-column layout (left config, centre chat, right quick-settings).
- * On small screens the columns stack vertically.
+ * Two-column layout (left config sidebar, right chat area with inline
+ * quick-settings bar). Eliminates the right sidebar for better density
+ * at higher browser zoom levels.
  */
 export function AgentPlayground() {
   // ----- Config state -----
@@ -644,18 +645,18 @@ export function AgentPlayground() {
         </button>
       </div>
 
-      {/* Three-column body */}
+      {/* Two-column body: left config sidebar + right chat area */}
       <div className="flex-1 min-h-0 flex gap-0 overflow-hidden">
         {/* ——— Left: agent config ——— */}
-        <aside className="flex w-56 flex-none flex-col gap-3 overflow-y-auto border-r theme-border p-3">
+        <aside className="w-[180px] flex-none flex flex-col gap-4 overflow-y-auto border-r theme-border p-3">
           <div>
-            <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] theme-text-muted mb-1">
+            <label className="block text-xs font-semibold uppercase tracking-[0.2em] theme-text-muted mb-2">
               Model
             </label>
             <select
               value={config.model}
               onChange={(e) => setConfig((c) => ({ ...c, model: e.target.value }))}
-              className="w-full rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-xs theme-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="w-full rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-3 py-1.5 text-xs theme-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {DEFAULT_MODELS.map((m) => (
                 <option key={m} value={m}>{m}</option>
@@ -664,25 +665,25 @@ export function AgentPlayground() {
           </div>
 
           <div>
-            <label className="block text-[10px] font-semibold uppercase tracking-[0.2em] theme-text-muted mb-1">
+            <label className="block text-xs font-semibold uppercase tracking-[0.2em] theme-text-muted mb-2">
               System Instructions
             </label>
             <textarea
               value={config.systemPrompt}
               onChange={(e) => setConfig((c) => ({ ...c, systemPrompt: e.target.value }))}
-              rows={6}
-              className="w-full resize-none rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1.5 text-xs theme-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              rows={5}
+              className="w-full resize-none rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-3 py-2 text-xs theme-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               placeholder="You are a helpful assistant…"
             />
           </div>
 
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] theme-text-muted mb-1.5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] theme-text-muted mb-2.5">
               Tools
             </p>
-            <div className="space-y-1">
+            <div className="space-y-2.5">
               {AVAILABLE_TOOLS.map((tool) => (
-                <label key={tool} className="flex items-center gap-1.5 text-[11px] theme-text-secondary cursor-pointer">
+                <label key={tool} className="flex items-center gap-2 text-xs theme-text-secondary cursor-pointer">
                   <input
                     type="checkbox"
                     checked={config.tools.includes(tool)}
@@ -767,12 +768,108 @@ export function AgentPlayground() {
           )}
         </aside>
 
-        {/* ——— Centre: chat REPL ——— */}
+        {/* ——— Right: chat area with inline quick settings ——— */}
         <div className="flex flex-1 min-w-0 flex-col">
+          {/* Quick settings bar — flex-wrap blocks with guaranteed min-widths */}
+          <div className="flex-none border-b theme-border px-3 py-2">
+            <div className="flex flex-wrap items-end gap-x-3 gap-y-2 text-[10px]">
+              {/* Temperature */}
+              <div className="min-w-[110px] flex-1">
+                <label className="block uppercase tracking-[0.1em] theme-text-muted mb-1">Temp</label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="range"
+                    min={0}
+                    max={2}
+                    step={0.05}
+                    value={settings.temperature}
+                    onChange={(e) =>
+                      setSettings((s) => ({ ...s, temperature: Number(e.target.value) }))
+                    }
+                    className="flex-1 min-w-0 accent-[color:var(--color-accent-primary)]"
+                  />
+                  <span className="font-mono theme-text-secondary flex-none">
+                    {settings.temperature.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Max Steps */}
+              <div className="min-w-[60px] w-[70px]">
+                <label className="block uppercase tracking-[0.1em] theme-text-muted mb-1">Steps</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={settings.maxSteps}
+                  onChange={(e) =>
+                    setSettings((s) => ({ ...s, maxSteps: Number(e.target.value) }))
+                  }
+                  className="w-full rounded border theme-border bg-[color:var(--color-background-secondary)] px-1.5 py-0.5 text-[11px] theme-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                />
+              </div>
+
+              {/* Max Tokens */}
+              <div className="min-w-[70px] w-[80px]">
+                <label className="block uppercase tracking-[0.1em] theme-text-muted mb-1">Tokens</label>
+                <input
+                  type="number"
+                  min={64}
+                  max={8192}
+                  step={64}
+                  value={settings.maxTokens}
+                  onChange={(e) =>
+                    setSettings((s) => ({ ...s, maxTokens: Number(e.target.value) }))
+                  }
+                  className="w-full rounded border theme-border bg-[color:var(--color-background-secondary)] px-1.5 py-0.5 text-[11px] theme-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                />
+              </div>
+
+              {/* Guardrail tier */}
+              <div className="min-w-[90px]">
+                <div className="flex items-center gap-1 mb-1">
+                  <label className="uppercase tracking-[0.1em] theme-text-muted">Guard</label>
+                  <HelpTooltip label="Guardrail security tier">
+                    Controls which safety filters are applied.
+                  </HelpTooltip>
+                </div>
+                <select
+                  value={settings.guardrailTier}
+                  onChange={(e) =>
+                    setSettings((s) => ({
+                      ...s,
+                      guardrailTier: e.target.value as GuardrailTier,
+                    }))
+                  }
+                  className="w-full rounded border theme-border bg-[color:var(--color-background-secondary)] px-1.5 py-0.5 text-[11px] theme-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                >
+                  {GUARDRAIL_TIERS.map((tier) => (
+                    <option key={tier} value={tier}>
+                      {tier.charAt(0).toUpperCase() + tier.slice(1)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Trace events */}
+              <label className="flex items-center gap-1.5 cursor-pointer theme-text-secondary whitespace-nowrap pb-0.5">
+                <input
+                  type="checkbox"
+                  checked={settings.traceEvents}
+                  onChange={(e) =>
+                    setSettings((s) => ({ ...s, traceEvents: e.target.checked }))
+                  }
+                  className="h-3 w-3 rounded accent-[color:var(--color-accent-primary)]"
+                />
+                Trace
+              </label>
+            </div>
+          </div>
+
           {/* Message area */}
           <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-4">
             {messages.length === 0 && (
-              <div className="flex h-full items-center justify-center">
+              <div className="hidden lg:flex h-full items-center justify-center">
                 <div className="text-center space-y-2">
                   <Zap className="mx-auto h-8 w-8 theme-text-muted" />
                   <p className="text-sm font-medium theme-text-secondary">
@@ -802,7 +899,7 @@ export function AgentPlayground() {
             {input.trim() && (
               <p className="mb-1.5 text-right text-[10px] theme-text-muted">
                 <Cpu className="inline h-3 w-3 mr-0.5" />
-                Est. cost: {formatCost(estimatedCost)}
+                Est. cost: {formatCost(estimatedCost)} · ~{Math.ceil((config.systemPrompt.length + input.length) / 4)} prompt tok
               </p>
             )}
             <div className="flex items-end gap-2">
@@ -811,7 +908,7 @@ export function AgentPlayground() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                rows={3}
+                rows={2}
                 placeholder="Type your prompt… (Ctrl+Enter to send)"
                 disabled={isStreaming}
                 className="flex-1 resize-none rounded-lg border theme-border bg-[color:var(--color-background-secondary)] px-3 py-2 text-sm theme-text-primary placeholder:theme-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
@@ -837,126 +934,6 @@ export function AgentPlayground() {
             </div>
           </div>
         </div>
-
-        {/* ——— Right: quick settings ——— */}
-        <aside className="flex w-52 flex-none flex-col gap-4 overflow-y-auto border-l theme-border p-3">
-          <div className="flex items-center gap-1.5">
-            <Settings2 className="h-3.5 w-3.5 theme-text-muted" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] theme-text-muted">
-              Quick Settings
-            </span>
-          </div>
-
-          {/* Temperature */}
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-[10px] uppercase tracking-[0.15em] theme-text-muted">
-                Temperature
-              </label>
-              <span className="text-[10px] font-mono theme-text-secondary">
-                {settings.temperature.toFixed(2)}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={0}
-              max={2}
-              step={0.05}
-              value={settings.temperature}
-              onChange={(e) =>
-                setSettings((s) => ({ ...s, temperature: Number(e.target.value) }))
-              }
-              className="w-full accent-[color:var(--color-accent-primary)]"
-            />
-          </div>
-
-          {/* Max Steps */}
-          <div>
-            <label className="block text-[10px] uppercase tracking-[0.15em] theme-text-muted mb-1">
-              Max Steps
-            </label>
-            <input
-              type="number"
-              min={1}
-              max={50}
-              value={settings.maxSteps}
-              onChange={(e) =>
-                setSettings((s) => ({ ...s, maxSteps: Number(e.target.value) }))
-              }
-              className="w-full rounded border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-xs theme-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            />
-          </div>
-
-          {/* Max Tokens */}
-          <div>
-            <label className="block text-[10px] uppercase tracking-[0.15em] theme-text-muted mb-1">
-              Max Tokens
-            </label>
-            <input
-              type="number"
-              min={64}
-              max={8192}
-              step={64}
-              value={settings.maxTokens}
-              onChange={(e) =>
-                setSettings((s) => ({ ...s, maxTokens: Number(e.target.value) }))
-              }
-              className="w-full rounded border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-xs theme-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            />
-          </div>
-
-          {/* Guardrail tier */}
-          <div>
-            <div className="flex items-center gap-1 mb-1">
-              <label className="text-[10px] uppercase tracking-[0.15em] theme-text-muted">
-                Guardrail Tier
-              </label>
-              <HelpTooltip label="Guardrail security tier">
-                Controls which safety filters are applied.
-              </HelpTooltip>
-            </div>
-            <select
-              value={settings.guardrailTier}
-              onChange={(e) =>
-                setSettings((s) => ({
-                  ...s,
-                  guardrailTier: e.target.value as GuardrailTier,
-                }))
-              }
-              className="w-full rounded border theme-border bg-[color:var(--color-background-secondary)] px-2 py-1 text-xs theme-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-            >
-              {GUARDRAIL_TIERS.map((tier) => (
-                <option key={tier} value={tier}>
-                  {tier.charAt(0).toUpperCase() + tier.slice(1)}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Trace events */}
-          <label className="flex items-center gap-2 text-[11px] theme-text-secondary cursor-pointer">
-            <input
-              type="checkbox"
-              checked={settings.traceEvents}
-              onChange={(e) =>
-                setSettings((s) => ({ ...s, traceEvents: e.target.checked }))
-              }
-              className="rounded accent-[color:var(--color-accent-primary)]"
-            />
-            Show Trace Events
-          </label>
-
-          {/* Cost estimator */}
-          {input.trim() && (
-            <div className="rounded border theme-border bg-[color:var(--color-background-secondary)] p-2 text-[10px] space-y-0.5">
-              <p className="font-semibold uppercase tracking-[0.2em] theme-text-muted">Est. Cost</p>
-              <p className="text-lg font-bold theme-text-primary">{formatCost(estimatedCost)}</p>
-              <p className="theme-text-muted">
-                ~{Math.ceil((config.systemPrompt.length + input.length) / 4)} prompt tok
-              </p>
-            </div>
-          )}
-        </aside>
       </div>
     </div>
   );
