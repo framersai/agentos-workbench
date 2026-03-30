@@ -27,7 +27,6 @@ import {
   Cpu,
   Loader2,
   Send,
-  Settings2,
   Trash2,
   Users,
   Zap,
