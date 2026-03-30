@@ -129,6 +129,15 @@ export async function resolvePlaygroundRuntime(
   getRuntime: () => Promise<unknown> = getAgentOS
 ): Promise<PlaygroundRuntime | null> {
   try {
+    // First try the module exports directly (generateText/streamText are top-level functions)
+    const runtimeImport = new Function('specifier', 'return import(specifier)') as (
+      specifier: string,
+    ) => Promise<Record<string, unknown>>;
+    const moduleExports = await runtimeImport('@framers/agentos').catch(() => null);
+    if (moduleExports && typeof moduleExports.generateText === 'function') {
+      return moduleExports as PlaygroundRuntime;
+    }
+    // Fall back to AgentOS instance (legacy path)
     const runtime = await getRuntime();
     return runtime && typeof runtime === 'object' ? (runtime as PlaygroundRuntime) : null;
   } catch {
