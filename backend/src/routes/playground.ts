@@ -8,27 +8,8 @@
  */
 
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import Anthropic from '@anthropic-ai/sdk';
 import { getAgentOS } from '../lib/agentos';
-import { buildWorkbenchProcessRequestInput } from './agentos';
-
-// ---------------------------------------------------------------------------
-// Anthropic direct client (AgentOS doesn't have a native Anthropic provider)
-// ---------------------------------------------------------------------------
-
-function isClaudeModel(model?: string): boolean {
-  return Boolean(model && model.startsWith('claude-'));
-}
-
-let _anthropicClient: Anthropic | null = null;
-
-function getAnthropicClient(): Anthropic | null {
-  if (_anthropicClient) return _anthropicClient;
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return null;
-  _anthropicClient = new Anthropic({ apiKey });
-  return _anthropicClient;
-}
+import { buildWorkbenchProcessRequestInput, inferProviderId } from './agentos';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,6 +20,8 @@ interface PlaygroundConfig {
   systemPrompt?: string;
   /** LLM model id, e.g. 'gpt-4o-mini'. */
   model?: string;
+  /** Explicit provider id for the selected model. */
+  providerId?: string;
   /** Sampling temperature 0–2. */
   temperature?: number;
   /** Hard token limit for the response. */
@@ -130,11 +113,12 @@ function estimateCost(
 /** Build a stub response for when AgentOS is not available. */
 function buildStubResponse(prompt: string, config: PlaygroundConfig) {
   const model = config.model ?? 'gpt-4o-mini';
+  const providerId = config.providerId ?? (model ? inferProviderId(model) : undefined) ?? 'unknown';
   const sys = config.systemPrompt ?? '(no system prompt)';
   const promptTokens = Math.ceil((sys.length + prompt.length) / 4);
   const completionTokens = 64;
   return {
-    text: `[Playground stub — connect AgentOS for live responses]\n\nModel: ${model}\nSystem: ${sys.slice(0, 80)}…\nPrompt: ${prompt}`,
+    text: `[Playground stub — connect AgentOS for live responses]\n\nModel: ${model}\nProvider: ${providerId}\nSystem: ${sys.slice(0, 80)}…\nPrompt: ${prompt}`,
     toolCalls: [] as ToolCallEntry[],
     runtimeMode: 'stub' as const,
     usage: {
@@ -205,41 +189,7 @@ export default async function playgroundRoutes(fastify: FastifyInstance): Promis
       }
 
       try {
-        if (isClaudeModel(config.model)) {
-          // Route Claude models directly to Anthropic API (AgentOS lacks a native Anthropic provider)
-          const anthropic = getAnthropicClient();
-          if (!anthropic) {
-            send('error', { message: 'ANTHROPIC_API_KEY is not configured. Add it to backend/.env to use Claude models.', runtimeMode: 'live' });
-            reply.raw.end();
-            return;
-          }
-
-          const stream = anthropic.messages.stream({
-            model: config.model!,
-            max_tokens: config.maxTokens ?? 1024,
-            temperature: config.temperature,
-            system: config.systemPrompt || undefined,
-            messages: [{ role: 'user', content: prompt }],
-          });
-
-          for await (const event of stream) {
-            if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
-              send('text_delta', { text: event.delta.text });
-            }
-          }
-
-          const finalMessage = await stream.finalMessage();
-          const promptTokens = finalMessage.usage.input_tokens;
-          const completionTokens = finalMessage.usage.output_tokens;
-          const latencyMs = Date.now() - startMs;
-          const usage: UsageInfo = {
-            promptTokens,
-            completionTokens,
-            totalTokens: promptTokens + completionTokens,
-            estimatedCostUsd: estimateCost(promptTokens, completionTokens, config.model),
-          };
-          send('done', { toolCalls: [], usage, latencyMs, sessionId, runtimeMode: 'live' as PlaygroundRuntimeMode });
-        } else if (agentos) {
+        if (agentos) {
           const toolCalls: ToolCallEntry[] = [];
           let promptTokens = 0;
           let completionTokens = 0;
@@ -250,6 +200,7 @@ export default async function playgroundRoutes(fastify: FastifyInstance): Promis
               sessionId: sessionId ?? `playground-${Date.now()}`,
               textInput: prompt,
               model: config.model,
+              providerId: config.providerId ?? (config.model ? inferProviderId(config.model) : undefined),
             })
           );
 
@@ -341,38 +292,7 @@ export default async function playgroundRoutes(fastify: FastifyInstance): Promis
       async function runConfig(config: PlaygroundConfig): Promise<CompareResult> {
         const startMs = Date.now();
         try {
-          if (isClaudeModel(config.model)) {
-            const anthropic = getAnthropicClient();
-            if (!anthropic) {
-              throw new Error('ANTHROPIC_API_KEY is not configured.');
-            }
-
-            const response = await anthropic.messages.create({
-              model: config.model!,
-              max_tokens: config.maxTokens ?? 1024,
-              temperature: config.temperature,
-              system: config.systemPrompt || undefined,
-              messages: [{ role: 'user', content: prompt }],
-            });
-
-            const fullText = response.content
-              .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-              .map((block) => block.text)
-              .join('');
-
-            return {
-              text: fullText,
-              toolCalls: [],
-              usage: {
-                promptTokens: response.usage.input_tokens,
-                completionTokens: response.usage.output_tokens,
-                totalTokens: response.usage.input_tokens + response.usage.output_tokens,
-                estimatedCostUsd: estimateCost(response.usage.input_tokens, response.usage.output_tokens, config.model),
-              },
-              latencyMs: Date.now() - startMs,
-              runtimeMode: 'live',
-            };
-          } else if (agentos) {
+          if (agentos) {
             let fullText = '';
             let promptTokens = 0;
             let completionTokens = 0;
@@ -383,6 +303,7 @@ export default async function playgroundRoutes(fastify: FastifyInstance): Promis
                 sessionId: `compare-${Date.now()}`,
                 textInput: prompt,
                 model: config.model,
+                providerId: config.providerId ?? (config.model ? inferProviderId(config.model) : undefined),
               })
             );
 

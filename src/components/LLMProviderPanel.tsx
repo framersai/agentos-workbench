@@ -59,7 +59,7 @@ const FALLBACK_PROVIDERS: ProviderInfo[] = [
   },
   {
     id: 'anthropic', name: 'Anthropic', envVar: 'ANTHROPIC_API_KEY', configured: false,
-    defaultModel: 'claude-sonnet-4-20250514', models: ['claude-opus-4-20250514', 'claude-sonnet-4-20250514', 'claude-haiku-4-5-20251001'],
+    defaultModel: 'claude-sonnet-4-0', models: ['claude-sonnet-4-0', 'claude-3-7-sonnet-latest', 'claude-3-5-haiku-latest'],
     capabilities: { streaming: true, toolCalling: true, vision: true, embedding: false },
     costTier: 3,
   },

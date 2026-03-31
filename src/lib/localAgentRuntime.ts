@@ -111,7 +111,7 @@ const buildProviderConfig = (secrets: Record<string, string>): AIModelProviderMa
       config: {
         apiKey: secrets["anthropic.apiKey"],
         baseURL: "https://api.anthropic.com",
-        defaultModelId: "claude-sonnet-4-20250514"
+        defaultModelId: "claude-sonnet-4-0"
       }
     });
   }

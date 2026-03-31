@@ -142,6 +142,14 @@ function parseJsonValue<T>(value: unknown): T | undefined {
   }
 }
 
+export function inferProviderId(model: string): string | undefined {
+  if (model.startsWith('claude-')) return 'anthropic';
+  if (model.startsWith('gpt-') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) return 'openai';
+  if (model.startsWith('gemini-')) return 'gemini';
+  if (model.startsWith('llama') || model.startsWith('mixtral')) return 'groq';
+  return undefined;
+}
+
 export function buildWorkbenchProcessRequestInput(input: {
   userId?: string;
   sessionId?: string;
@@ -149,6 +157,7 @@ export function buildWorkbenchProcessRequestInput(input: {
   selectedPersonaId?: string;
   textInput?: string | null;
   model?: string;
+  providerId?: string;
   workflowRequest?: WorkbenchWorkflowRequest;
   agencyRequest?: WorkbenchAgencyRequest;
 }) {
@@ -163,6 +172,7 @@ export function buildWorkbenchProcessRequestInput(input: {
     options: input.model
       ? {
           preferredModelId: input.model,
+          preferredProviderId: input.providerId ?? inferProviderId(input.model),
         }
       : undefined,
   };

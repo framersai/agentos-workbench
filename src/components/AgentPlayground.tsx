@@ -86,6 +86,7 @@ interface ChatMessage {
 interface AgentConfig {
   systemPrompt: string;
   model: string;
+  providerId?: string;
   tools: string[];
   mode: PlaygroundMode;
   /** Agency mode: list of agent roles. */
@@ -129,11 +130,19 @@ const GUARDRAIL_TIERS: GuardrailTier[] = [
 const DEFAULT_MODELS = [
   'gpt-4o-mini',
   'gpt-4o',
-  'claude-haiku-4-5-20251001',
-  'claude-sonnet-4-20250514',
-  'claude-opus-4-20250514',
+  'claude-sonnet-4-0',
+  'claude-3-7-sonnet-latest',
+  'claude-3-5-haiku-latest',
   'gemini-2.0-flash',
 ];
+
+function inferProviderId(model: string): string | undefined {
+  if (model.startsWith('claude-')) return 'anthropic';
+  if (model.startsWith('gpt-') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) return 'openai';
+  if (model.startsWith('gemini-')) return 'gemini';
+  if (model.startsWith('llama') || model.startsWith('mixtral')) return 'groq';
+  return undefined;
+}
 
 /** Rough token price used for cost estimation before a real response. */
 const ROUGH_INPUT_RATE = 0.0005;
@@ -360,6 +369,7 @@ export function AgentPlayground() {
   const [config, setConfig] = useState<AgentConfig>({
     systemPrompt: 'You are a helpful AI assistant.',
     model: 'gpt-4o-mini',
+    providerId: 'openai',
     tools: [],
     mode: 'agent',
     agencyRoles: [
@@ -439,6 +449,7 @@ export function AgentPlayground() {
           config: {
             systemPrompt: config.systemPrompt,
             model: config.model,
+            providerId: config.providerId ?? inferProviderId(config.model),
             tools: config.tools,
             temperature: settings.temperature,
             maxSteps: settings.maxSteps,
@@ -655,7 +666,10 @@ export function AgentPlayground() {
             </label>
             <select
               value={config.model}
-              onChange={(e) => setConfig((c) => ({ ...c, model: e.target.value }))}
+              onChange={(e) => {
+                const model = e.target.value;
+                setConfig((c) => ({ ...c, model, providerId: inferProviderId(model) }));
+              }}
               className="w-full rounded-md border theme-border bg-[color:var(--color-background-secondary)] px-3 py-1.5 text-xs theme-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               {DEFAULT_MODELS.map((m) => (

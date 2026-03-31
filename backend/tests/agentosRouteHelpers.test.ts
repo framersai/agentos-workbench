@@ -36,6 +36,7 @@ test('buildWorkbenchProcessRequestInput forwards workflow, agency, and preferred
   assert.deepEqual(input.workflowRequest, workflowRequest);
   assert.deepEqual(input.agencyRequest, agencyRequest);
   assert.equal(input.options?.preferredModelId, 'gpt-4o-mini');
+  assert.equal(input.options?.preferredProviderId, 'openai');
 });
 
 test('buildWorkbenchProcessRequestInput falls back to defaults when optional fields are omitted', () => {
@@ -50,4 +51,15 @@ test('buildWorkbenchProcessRequestInput falls back to defaults when optional fie
   assert.equal(input.workflowRequest, undefined);
   assert.equal(input.agencyRequest, undefined);
   assert.equal(input.options, undefined);
+});
+
+test('buildWorkbenchProcessRequestInput preserves an explicit provider override', () => {
+  const input = buildWorkbenchProcessRequestInput({
+    textInput: 'Hello',
+    model: 'claude-sonnet-4-0',
+    providerId: 'anthropic',
+  });
+
+  assert.equal(input.options?.preferredModelId, 'claude-sonnet-4-0');
+  assert.equal(input.options?.preferredProviderId, 'anthropic');
 });

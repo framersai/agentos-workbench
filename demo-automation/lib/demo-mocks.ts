@@ -72,7 +72,7 @@ const PERSONAS = [
 const MODELS = {
   models: [
     {
-      id: 'claude-sonnet-4-20250514',
+      id: 'claude-sonnet-4-0',
       name: 'Claude Sonnet 4',
       provider: 'anthropic',
       inputCostPer1k: 0.003,

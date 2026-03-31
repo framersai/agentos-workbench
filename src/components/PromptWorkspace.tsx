@@ -37,6 +37,7 @@ import { EmptyState } from '@/components/EmptyState';
 interface PaneConfig {
   systemPrompt: string;
   model: string;
+  providerId?: string;
   temperature: number;
 }
 
@@ -73,10 +74,18 @@ interface HistoryEntry {
 const MODELS = [
   'gpt-4o-mini',
   'gpt-4o',
-  'claude-haiku-4-5-20251001',
-  'claude-sonnet-4-20250514',
-  'claude-opus-4-20250514',
+  'claude-sonnet-4-0',
+  'claude-3-7-sonnet-latest',
+  'claude-3-5-haiku-latest',
 ];
+
+function inferProviderId(model: string): string | undefined {
+  if (model.startsWith('claude-')) return 'anthropic';
+  if (model.startsWith('gpt-') || model.startsWith('o1') || model.startsWith('o3') || model.startsWith('o4')) return 'openai';
+  if (model.startsWith('gemini-')) return 'gemini';
+  if (model.startsWith('llama') || model.startsWith('mixtral')) return 'groq';
+  return undefined;
+}
 
 const PROMPT_TEMPLATES: { name: string; system: string }[] = [
   {
@@ -218,7 +227,10 @@ function PromptPane({
         </span>
         <select
           value={config.model}
-          onChange={(e) => onChange({ ...config, model: e.target.value })}
+          onChange={(e) => {
+            const model = e.target.value;
+            onChange({ ...config, model, providerId: inferProviderId(model) });
+          }}
           className="rounded border theme-border bg-[color:var(--color-background-secondary)] px-1.5 py-0.5 text-[10px] theme-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-accent"
         >
           {MODELS.map((m) => <option key={m} value={m}>{m}</option>)}
@@ -323,11 +335,13 @@ export function PromptWorkspace() {
   const [configA, setConfigA] = useState<PaneConfig>({
     systemPrompt: 'You are a helpful AI assistant.',
     model: 'gpt-4o-mini',
+    providerId: 'openai',
     temperature: 0.7,
   });
   const [configB, setConfigB] = useState<PaneConfig>({
     systemPrompt: 'You are a concise AI assistant. Keep answers to 3 sentences maximum.',
     model: 'gpt-4o-mini',
+    providerId: 'openai',
     temperature: 0.3,
   });
 
@@ -359,10 +373,18 @@ export function PromptWorkspace() {
     setResultA(undefined);
     setResultB(undefined);
     try {
+      const compareConfigA = {
+        ...configA,
+        providerId: configA.providerId ?? inferProviderId(configA.model),
+      };
+      const compareConfigB = {
+        ...configB,
+        providerId: configB.providerId ?? inferProviderId(configB.model),
+      };
       const res = await fetch(`${baseUrl}/api/playground/compare`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userPrompt, configA, configB }),
+        body: JSON.stringify({ prompt: userPrompt, configA: compareConfigA, configB: compareConfigB }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json() as { resultA: RunResult; resultB: RunResult };
@@ -375,8 +397,8 @@ export function PromptWorkspace() {
         label: userPrompt.slice(0, 40) + (userPrompt.length > 40 ? '…' : ''),
         timestamp: Date.now(),
         userPrompt,
-        configA,
-        configB,
+        configA: compareConfigA,
+        configB: compareConfigB,
         resultA: json.resultA,
         resultB: json.resultB,
         pinned: false,
@@ -406,7 +428,13 @@ export function PromptWorkspace() {
       const res = await fetch(`${baseUrl}/api/playground/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: userPrompt, config }),
+        body: JSON.stringify({
+          prompt: userPrompt,
+          config: {
+            ...config,
+            providerId: config.providerId ?? inferProviderId(config.model),
+          },
+        }),
       });
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
       const reader = res.body.getReader();

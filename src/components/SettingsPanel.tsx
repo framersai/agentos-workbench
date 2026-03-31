@@ -229,7 +229,7 @@ export function SettingsPanel() {
                 <label className="mt-2 block space-y-1">
                   <span className="text-[10px] theme-text-secondary">Model</span>
                   <input
-                    placeholder="claude-3-5-sonnet"
+                    placeholder="claude-sonnet-4-0"
                     value={form.anthropicModel}
                     onChange={(e) => setForm((f) => ({ ...f, anthropicModel: e.target.value }))}
                     title="Choose the default Anthropic model used when a request does not override it."

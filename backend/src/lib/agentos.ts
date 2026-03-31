@@ -76,6 +76,27 @@ const runtimeImport = new Function('specifier', 'return import(specifier)') as (
   specifier: string
 ) => Promise<{ AgentOS: new () => AgentOSInstance }>;
 
+function hasUsableApiKey(value: string | undefined): boolean {
+  const apiKey = value?.trim();
+  return Boolean(apiKey && apiKey !== 'dummy-key');
+}
+
+export function resolveWorkbenchDefaultLlm(): { providerId: string; modelId: string } {
+  if (hasUsableApiKey(process.env.OPENAI_API_KEY)) {
+    return { providerId: 'openai', modelId: 'gpt-4o' };
+  }
+
+  if (hasUsableApiKey(process.env.ANTHROPIC_API_KEY)) {
+    return { providerId: 'anthropic', modelId: 'claude-sonnet-4-0' };
+  }
+
+  if (hasUsableApiKey(process.env.GEMINI_API_KEY)) {
+    return { providerId: 'google', modelId: 'gemini-2.0-flash' };
+  }
+
+  return { providerId: 'openai', modelId: 'gpt-4o' };
+}
+
 function shouldEnableWorkbenchRuntimeRag(): boolean {
   const runtimeToggle = (process.env.AGENTOS_WORKBENCH_ENABLE_RUNTIME_RAG ?? 'true').trim().toLowerCase();
   if (runtimeToggle === 'false' || runtimeToggle === '0' || runtimeToggle === 'off') {
@@ -175,6 +196,7 @@ export async function initializeAgentOS() {
 
     const agentos = await getAgentOS();
     const ragConfig = buildWorkbenchRagConfig();
+    const defaultLlm = resolveWorkbenchDefaultLlm();
     if (ragConfig) {
       console.log('AgentOS Workbench: runtime RAG bootstrap enabled.');
     } else {
@@ -193,12 +215,8 @@ export async function initializeAgentOS() {
           personaDefinitionPath: personasPath,
         } as any,
         defaultGMIBaseConfigDefaults: {
-          defaultLlmProviderId: process.env.ANTHROPIC_API_KEY ? 'anthropic'
-            : process.env.GEMINI_API_KEY ? 'google'
-            : 'openai',
-          defaultLlmModelId: process.env.ANTHROPIC_API_KEY ? 'claude-sonnet-4-20250514'
-            : process.env.GEMINI_API_KEY ? 'gemini-2.0-flash'
-            : 'gpt-4o',
+          defaultLlmProviderId: defaultLlm.providerId,
+          defaultLlmModelId: defaultLlm.modelId,
         },
         cognitiveMemoryFactory: createWorkbenchCognitiveMemoryFactory(),
       },
@@ -214,8 +232,42 @@ export async function initializeAgentOS() {
                 content: components.systemPrompts.map((p: any) => p.content).join('\n'),
               });
             }
+            if (components.conversationHistory) {
+              for (const msg of components.conversationHistory) {
+                if (msg.role === 'summary') continue;
+                messages.push({
+                  role: msg.role === 'assistant' ? 'assistant' as const : 'user' as const,
+                  content: msg.content,
+                });
+              }
+            }
             if (components.userInput) {
               messages.push({ role: 'user' as const, content: components.userInput });
+            }
+            return messages;
+          },
+          // Override the built-in anthropic_messages template to return a flat
+          // ChatMessage[] array that AnthropicProvider.buildRequestPayload expects,
+          // instead of the { messages, system } object the built-in template returns.
+          anthropic_messages: async (components: any) => {
+            const messages: Array<{ role: string; content: any }> = [];
+            if (components.systemPrompts && components.systemPrompts.length > 0) {
+              messages.push({
+                role: 'system',
+                content: components.systemPrompts.map((p: any) => p.content).join('\n\n'),
+              });
+            }
+            if (components.conversationHistory) {
+              for (const msg of components.conversationHistory) {
+                if (msg.role === 'summary') continue;
+                messages.push({
+                  role: msg.role === 'assistant' ? 'assistant' : 'user',
+                  content: msg.content,
+                });
+              }
+            }
+            if (components.userInput) {
+              messages.push({ role: 'user', content: components.userInput });
             }
             return messages;
           },

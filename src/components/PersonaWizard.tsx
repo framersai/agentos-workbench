@@ -278,7 +278,7 @@ export function PersonaWizard({ open, onClose }: PersonaWizardProps) {
                     <option value="">System default</option>
                     <option value="gpt-4o">gpt-4o (powerful)</option>
                     <option value="gpt-4o-mini">gpt-4o-mini (fast, cheap)</option>
-                    <option value="claude-sonnet-4-20250514">Claude Sonnet 4</option>
+                    <option value="claude-sonnet-4-0">Claude Sonnet 4</option>
                     <option value="openai/gpt-4o">OpenRouter: GPT-4o</option>
                   </select>
                 </label>
