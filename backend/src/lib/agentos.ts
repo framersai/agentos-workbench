@@ -193,8 +193,12 @@ export async function initializeAgentOS() {
           personaDefinitionPath: personasPath,
         } as any,
         defaultGMIBaseConfigDefaults: {
-          defaultLlmProviderId: 'openai',
-          defaultLlmModelId: 'gpt-4o',
+          defaultLlmProviderId: process.env.ANTHROPIC_API_KEY ? 'anthropic'
+            : process.env.GEMINI_API_KEY ? 'google'
+            : 'openai',
+          defaultLlmModelId: process.env.ANTHROPIC_API_KEY ? 'claude-sonnet-4-20250514'
+            : process.env.GEMINI_API_KEY ? 'gemini-2.0-flash'
+            : 'gpt-4o',
         },
         cognitiveMemoryFactory: createWorkbenchCognitiveMemoryFactory(),
       },
@@ -255,8 +259,32 @@ export async function initializeAgentOS() {
             config: {
               apiKey: process.env.OPENAI_API_KEY || 'dummy-key',
             },
-            isDefault: true,
+            isDefault: !process.env.ANTHROPIC_API_KEY,
           },
+          ...(process.env.ANTHROPIC_API_KEY ? [{
+            providerId: 'anthropic' as const,
+            enabled: true,
+            config: {
+              apiKey: process.env.ANTHROPIC_API_KEY,
+            },
+            isDefault: false,
+          }] : []),
+          ...(process.env.GEMINI_API_KEY ? [{
+            providerId: 'google' as const,
+            enabled: true,
+            config: {
+              apiKey: process.env.GEMINI_API_KEY,
+            },
+            isDefault: false,
+          }] : []),
+          ...(process.env.GROQ_API_KEY ? [{
+            providerId: 'groq' as const,
+            enabled: true,
+            config: {
+              apiKey: process.env.GROQ_API_KEY,
+            },
+            isDefault: false,
+          }] : []),
         ],
       },
     });

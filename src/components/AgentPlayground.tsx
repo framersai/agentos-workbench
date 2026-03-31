@@ -129,9 +129,10 @@ const GUARDRAIL_TIERS: GuardrailTier[] = [
 const DEFAULT_MODELS = [
   'gpt-4o-mini',
   'gpt-4o',
-  'claude-3-haiku',
-  'claude-3-5-sonnet',
-  'claude-sonnet-4',
+  'claude-haiku-4-5-20251001',
+  'claude-sonnet-4-20250514',
+  'claude-opus-4-20250514',
+  'gemini-2.0-flash',
 ];
 
 /** Rough token price used for cost estimation before a real response. */
