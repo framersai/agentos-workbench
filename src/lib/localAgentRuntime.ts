@@ -104,9 +104,21 @@ const buildProviderConfig = (secrets: Record<string, string>): AIModelProviderMa
     });
   }
 
+  if (secrets["anthropic.apiKey"]) {
+    entries.push({
+      providerId: "anthropic",
+      enabled: true,
+      config: {
+        apiKey: secrets["anthropic.apiKey"],
+        baseURL: "https://api.anthropic.com",
+        defaultModelId: "claude-sonnet-4-20250514"
+      }
+    });
+  }
+
   if (!entries.some((entry) => entry.enabled)) {
     throw new Error(
-      "Add at least one API key (OpenRouter or OpenAI) in the Credentials panel to run the embedded runtime."
+      "Add at least one API key (OpenRouter, OpenAI, or Anthropic) in the Credentials panel to run the embedded runtime."
     );
   }
 
