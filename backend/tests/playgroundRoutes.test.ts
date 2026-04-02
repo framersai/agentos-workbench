@@ -13,15 +13,38 @@ test('resolvePlaygroundRuntime awaits the runtime getter result', async () => {
     },
   };
 
-  const resolved = await resolvePlaygroundRuntime(async () => runtime);
+  const resolved = await resolvePlaygroundRuntime(async () => runtime, async () => null);
 
   assert.equal(resolved, runtime);
 });
 
+test('resolvePlaygroundRuntime prefers module exports when generateText is exported at top level', async () => {
+  let getterCalled = false;
+  const moduleRuntime = {
+    async generateText() {
+      return { text: 'live' };
+    },
+  };
+
+  const resolved = await resolvePlaygroundRuntime(
+    async () => {
+      getterCalled = true;
+      return { legacy: true };
+    },
+    async () => moduleRuntime,
+  );
+
+  assert.equal(resolved, moduleRuntime);
+  assert.equal(getterCalled, false);
+});
+
 test('resolvePlaygroundRuntime returns null when runtime loading fails', async () => {
-  const resolved = await resolvePlaygroundRuntime(async () => {
-    throw new Error('runtime unavailable');
-  });
+  const resolved = await resolvePlaygroundRuntime(
+    async () => {
+      throw new Error('runtime unavailable');
+    },
+    async () => null,
+  );
 
   assert.equal(resolved, null);
 });

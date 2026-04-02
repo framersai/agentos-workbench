@@ -1,4 +1,4 @@
-import extensionSecretDefinitions from '../../../../packages/agentos/src/config/extension-secrets.json';
+import extensionSecretDefinitions from '@framers/agentos/config/extension-secrets.json';
 
 export interface SecretDefinition {
   id: string;
