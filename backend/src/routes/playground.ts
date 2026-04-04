@@ -9,6 +9,7 @@
 
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { getAgentOS } from '../lib/agentos';
+import { resolveTools, listAvailableToolNames } from '../services/toolCatalog';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -161,6 +162,32 @@ export function getPlaygroundRuntimeMode(
 
 export default async function playgroundRoutes(fastify: FastifyInstance): Promise<void> {
   /**
+   * GET /api/playground/tools
+   *
+   * Returns the list of all available tool names (built-in + forged).
+   * The frontend uses this to populate the tool checkbox list dynamically.
+   */
+  fastify.get(
+    '/tools',
+    {
+      schema: {
+        description: 'List all available tool names for the playground',
+        tags: ['Playground'],
+        response: {
+          200: {
+            type: 'object',
+            properties: {
+              tools: { type: 'array', items: { type: 'string' } },
+            },
+            required: ['tools'],
+          },
+        },
+      },
+    },
+    async () => ({ tools: listAvailableToolNames() }),
+  );
+
+  /**
    * POST /api/playground/run
    *
    * Accepts a config + prompt and streams an SSE response with text chunks,
@@ -214,13 +241,19 @@ export default async function playgroundRoutes(fastify: FastifyInstance): Promis
           let completionTokens = 0;
           const toolCalls: ToolCallEntry[] = [];
 
+          // Resolve tool name strings to executable tool definitions.
+          const tools = config.tools?.length
+            ? resolveTools(config.tools, { includeAllForged: true })
+            : undefined;
+
           const stream = streamFn({
             model: config.model ?? 'gpt-4o-mini',
             system: systemPrompt,
             prompt,
             temperature: config.temperature,
             maxTokens: config.maxTokens,
-            maxSteps: config.maxSteps,
+            maxSteps: config.maxSteps ?? 5,
+            tools,
           });
 
           for await (const chunk of stream) {
@@ -315,12 +348,16 @@ export default async function playgroundRoutes(fastify: FastifyInstance): Promis
             const genFn = liveRuntime.generateText as (
               opts: Record<string, unknown>
             ) => Promise<Record<string, unknown>>;
+            const compareTools = config.tools?.length
+              ? resolveTools(config.tools, { includeAllForged: true })
+              : undefined;
             const result = await genFn({
               model: config.model ?? 'gpt-4o-mini',
               system: config.systemPrompt ?? 'You are a helpful AI assistant.',
               prompt,
               temperature: config.temperature,
               maxTokens: config.maxTokens,
+              tools: compareTools,
             });
             const text = String(result.text ?? '');
             const usageObj = (result.usage ?? {}) as Record<string, unknown>;

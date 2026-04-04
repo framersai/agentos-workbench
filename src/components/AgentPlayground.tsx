@@ -110,7 +110,7 @@ interface QuickSettings {
 // Constants
 // ---------------------------------------------------------------------------
 
-const AVAILABLE_TOOLS = [
+const DEFAULT_TOOLS = [
   'web_search',
   'file_reader',
   'code_executor',
@@ -365,6 +365,25 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
  * at higher browser zoom levels.
  */
 export function AgentPlayground() {
+  // ----- Dynamic tool list (includes forged tools) -----
+  const [availableTools, setAvailableTools] = useState<string[]>(DEFAULT_TOOLS);
+  useEffect(() => {
+    (async () => {
+      try {
+        const base = (() => {
+          try { return resolveWorkbenchApiBaseUrl(); } catch { return ''; }
+        })();
+        const res = await fetch(`${base}/api/playground/tools`);
+        if (res.ok) {
+          const data = await res.json() as { tools: string[] };
+          if (Array.isArray(data.tools) && data.tools.length > 0) {
+            setAvailableTools(data.tools);
+          }
+        }
+      } catch { /* keep defaults */ }
+    })();
+  }, []);
+
   // ----- Config state -----
   const [config, setConfig] = useState<AgentConfig>({
     systemPrompt: 'You are a helpful AI assistant.',
@@ -696,7 +715,7 @@ export function AgentPlayground() {
               Tools
             </p>
             <div className="space-y-2.5">
-              {AVAILABLE_TOOLS.map((tool) => (
+              {availableTools.map((tool) => (
                 <label key={tool} className="flex items-center gap-2 text-xs theme-text-secondary cursor-pointer">
                   <input
                     type="checkbox"

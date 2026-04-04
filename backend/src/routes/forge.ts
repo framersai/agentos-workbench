@@ -27,23 +27,18 @@
  */
 
 import { FastifyInstance, FastifyReply } from 'fastify';
+import {
+  registerForgedTool,
+  listForgedTools,
+  recordForgedToolUse,
+  type PersistedForgedTool,
+} from '../services/toolCatalog';
 
 // ---------------------------------------------------------------------------
-// In-memory tool registry (persists across requests within a server process)
+// Forged tool registry — backed by persistent JSON file via toolCatalog
 // ---------------------------------------------------------------------------
 
-interface ForgedTool {
-  id: string;
-  name: string;
-  description: string;
-  /** Generated implementation as a JS function body string. */
-  implementation: string;
-  tier: 'session' | 'agent' | 'shared';
-  callCount: number;
-  successCount: number;
-  totalLatencyMs: number;
-  createdAt: number;
-}
+type ForgedTool = PersistedForgedTool;
 
 interface JudgeVerdict {
   requestId: string;
@@ -67,7 +62,8 @@ function markForgeReply(reply: FastifyReply, mode: ForgeWorkbenchMode = 'demo'):
   reply.header(WORKBENCH_FORGE_MODE_HEADER, mode);
 }
 
-const toolRegistry: ForgedTool[] = [];
+// toolRegistry is now backed by the persistent toolCatalog service.
+// Use listForgedTools() to read and registerForgedTool() to write.
 
 function generateId(): string {
   return `forge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -193,7 +189,7 @@ export default async function forgeRoutes(fastify: FastifyInstance): Promise<voi
         totalLatencyMs: 0,
         createdAt: Date.now(),
       };
-      toolRegistry.push(tool);
+      registerForgedTool(tool);
 
       markForgeReply(reply);
       return reply.code(200).send({
@@ -232,7 +228,7 @@ export default async function forgeRoutes(fastify: FastifyInstance): Promise<voi
       markForgeReply(reply);
       return {
         mode: 'demo' as const,
-        tools: toolRegistry.map(serializeTool),
+        tools: listForgedTools().map(serializeTool),
       };
     }
   );
@@ -283,14 +279,13 @@ export default async function forgeRoutes(fastify: FastifyInstance): Promise<voi
       },
     },
     async (req, reply) => {
-      const tool = toolRegistry.find((t) => t.id === req.params.id);
+      const tool = listForgedTools().find((t) => t.id === req.params.id);
       if (!tool) {
         markForgeReply(reply);
         return reply.code(404).send({ mode: 'demo', error: 'Tool not found' });
       }
 
       const startMs = Date.now();
-      tool.callCount += 1;
 
       // Evaluate the stub implementation safely
       let result: unknown;
@@ -298,9 +293,9 @@ export default async function forgeRoutes(fastify: FastifyInstance): Promise<voi
         // eslint-disable-next-line no-new-func
         const fn = new Function('params', `${tool.implementation}\nreturn run(params);`);
         result = await Promise.resolve(fn(req.body));
-        tool.successCount += 1;
+        recordForgedToolUse(tool.id, true, Date.now() - startMs);
       } catch (err) {
-        tool.totalLatencyMs += Date.now() - startMs;
+        recordForgedToolUse(tool.id, false, Date.now() - startMs);
         markForgeReply(reply);
         return reply.code(500).send({
           mode: 'demo',
@@ -308,7 +303,6 @@ export default async function forgeRoutes(fastify: FastifyInstance): Promise<voi
         });
       }
 
-      tool.totalLatencyMs += Date.now() - startMs;
       markForgeReply(reply);
       return reply.code(200).send({
         mode: 'demo',
