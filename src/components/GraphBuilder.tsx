@@ -743,9 +743,9 @@ export function GraphBuilder() {
   // -------------------------------------------------------------------------
 
   return (
-    <section className="rounded-xl border theme-border theme-bg-secondary-soft p-3 transition-theme">
+    <section className="rounded-xl border theme-border theme-bg-secondary-soft p-2 transition-theme overflow-hidden">
       {/* Header */}
-      <header className="mb-3 flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+      <header className="mb-2 flex flex-col gap-2 xl:flex-row xl:items-start xl:justify-between">
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <div>
@@ -775,7 +775,7 @@ export function GraphBuilder() {
               type="button"
               onClick={handleSaveCheckpoint}
               title="Save a checkpoint of the current graph."
-              className="inline-flex items-center gap-1 rounded-full border theme-border bg-[color:var(--color-background-secondary)] px-2.5 py-1 text-[10px] theme-text-secondary transition hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              className="inline-flex items-center gap-1 rounded-full border theme-border bg-[color:var(--color-background-secondary)] px-2.5 py-1 text-[10px] theme-text-secondary transition hover:opacity-95 active:scale-90 active:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
               <Download size={9} aria-hidden="true" />
               Checkpoint
@@ -838,12 +838,17 @@ export function GraphBuilder() {
         </div>
       )}
 
-      {/* Three-column layout */}
-      <div className="grid grid-cols-[140px_1fr_180px] gap-2 min-h-[400px]">
+      {/* Three-column layout — hide palette + node editor when viewing runtime runs */}
+      <div className={[
+        'grid gap-2 min-h-[400px] overflow-hidden',
+        subTab === 'runtime'
+          ? 'grid-cols-1'
+          : 'grid-cols-[110px_minmax(0,1fr)_140px]',
+      ].join(' ')}>
         {/* ---------------------------------------------------------------- */}
         {/* Left: Node palette                                                */}
         {/* ---------------------------------------------------------------- */}
-        <div className="flex flex-col gap-1">
+        <div className={`flex flex-col gap-1${subTab === 'runtime' ? ' hidden' : ''}`}>
           <p className="mb-1 text-[9px] uppercase tracking-[0.35em] theme-text-muted">Palette</p>
           {PALETTE.map((entry) => {
             const Icon = entry.Icon;
@@ -853,11 +858,11 @@ export function GraphBuilder() {
                 type="button"
                 onClick={() => addNode(entry)}
                 title={entry.description}
-                className="flex items-center gap-2 rounded-lg border theme-border theme-bg-primary px-2 py-1.5 text-left text-[10px] theme-text-secondary transition hover:bg-white/5 hover:theme-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="flex items-center gap-1.5 rounded-lg border theme-border theme-bg-primary px-1.5 py-1 text-left text-[10px] theme-text-secondary transition hover:bg-white/5 hover:theme-text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
-                <Icon size={11} className={NODE_BADGE_COLORS[entry.type]} />
-                <span className="text-xs">{entry.label}</span>
-                <Plus size={9} className="ml-auto shrink-0 opacity-40" />
+                <Icon size={10} className={NODE_BADGE_COLORS[entry.type]} />
+                <span className="text-[11px] truncate">{entry.label}</span>
+                <Plus size={8} className="ml-auto shrink-0 opacity-40" />
               </button>
             );
           })}
@@ -868,14 +873,14 @@ export function GraphBuilder() {
         {/* ---------------------------------------------------------------- */}
         <div className="flex flex-col gap-2 min-w-0">
           {/* Sub-tab strip */}
-          <div className="flex gap-0.5 rounded-lg border theme-border theme-bg-primary p-0.5">
+          <div className="flex gap-0.5 rounded-lg border theme-border theme-bg-primary p-0.5 overflow-x-auto">
             {GRAPH_SUBTABS.map(({ key, label }) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setSubTab(key)}
                 className={[
-                  'rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                  'shrink-0 whitespace-nowrap rounded-md px-2.5 py-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
                   subTab === key
                     ? 'bg-sky-500 text-white'
                     : 'theme-text-secondary hover:theme-text-primary hover:bg-white/5',
@@ -1011,20 +1016,21 @@ export function GraphBuilder() {
 
           {/* Runtime tab */}
           {subTab === 'runtime' && (
-            <div className="grid flex-1 gap-2 xl:grid-cols-[230px_minmax(0,1fr)] min-h-[320px]">
-              <div className="flex min-h-0 flex-col gap-2">
+            <div className="flex flex-1 flex-col gap-4">
+              {/* ── Run list: horizontal scrollable strip ── */}
+              <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
-                  <p className="text-[9px] uppercase tracking-[0.35em] theme-text-muted">
+                  <p className="text-xs uppercase tracking-[0.25em] theme-text-muted">
                     Persisted Runs
                   </p>
                   <button
                     type="button"
                     onClick={() => void fetchRuntimeRuns()}
                     disabled={runtimeLoading}
-                    className="inline-flex items-center gap-1 rounded-full border theme-border bg-[color:var(--color-background-secondary)] px-2 py-0.5 text-[9px] theme-text-secondary transition hover:opacity-95 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    className="inline-flex items-center gap-1 rounded-full border theme-border bg-[color:var(--color-background-secondary)] px-2.5 py-1 text-[10px] theme-text-secondary transition hover:opacity-95 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                   >
                     <RefreshCw
-                      size={9}
+                      size={10}
                       className={runtimeLoading ? 'animate-spin' : ''}
                       aria-hidden="true"
                     />
@@ -1032,17 +1038,17 @@ export function GraphBuilder() {
                   </button>
                 </div>
 
-                <div className="min-h-0 space-y-1.5 overflow-y-auto pr-1">
+                <div className="flex gap-2 overflow-x-auto pb-1">
                   {runtimeLoading && runtimeRuns.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 rounded-lg border theme-border theme-bg-primary py-8 text-center">
+                    <div className="flex w-full flex-col items-center gap-2 rounded-lg border theme-border theme-bg-primary py-8 text-center">
                       <RefreshCw size={18} className="animate-spin theme-text-muted" />
                       <p className="text-xs theme-text-secondary">Loading runtime runs…</p>
                     </div>
                   ) : runtimeRuns.length === 0 ? (
-                    <div className="flex flex-col items-center gap-2 rounded-lg border theme-border theme-bg-primary py-8 text-center">
+                    <div className="flex w-full flex-col items-center gap-2 rounded-lg border theme-border theme-bg-primary py-8 text-center">
                       <GitBranch size={18} className="theme-text-muted" />
                       <p className="text-xs theme-text-secondary">No persisted runtime runs yet.</p>
-                      <p className="px-4 text-[10px] theme-text-muted">
+                      <p className="px-4 text-[11px] theme-text-muted">
                         Workflow and agency executions that hit the runtime will appear here with
                         checkpoints and event history.
                       </p>
@@ -1056,7 +1062,7 @@ export function GraphBuilder() {
                           type="button"
                           onClick={() => setSelectedRuntimeRunId(run.runId)}
                           className={[
-                            'w-full rounded-lg border px-3 py-2 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                            'flex-shrink-0 w-56 rounded-lg border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
                             active
                               ? 'border-sky-500/50 bg-sky-500/10'
                               : 'theme-border theme-bg-primary hover:bg-white/5',
@@ -1068,17 +1074,17 @@ export function GraphBuilder() {
                             </span>
                             <span
                               className={[
-                                'rounded-full border px-1.5 py-px text-[9px] uppercase tracking-wide',
+                                'flex-shrink-0 rounded-full border px-1.5 py-px text-[9px] uppercase tracking-wide',
                                 GRAPH_RUN_STATUS_STYLES[run.status],
                               ].join(' ')}
                             >
                               {run.status}
                             </span>
                           </div>
-                          <p className="mt-1 line-clamp-2 text-[10px] theme-text-secondary">
+                          <p className="mt-1.5 line-clamp-2 text-[11px] leading-relaxed theme-text-secondary">
                             {run.goal}
                           </p>
-                          <p className="mt-1 text-[9px] theme-text-muted">
+                          <p className="mt-1.5 text-[10px] theme-text-muted">
                             {run.checkpoints.length} checkpoints · {run.tasks.length} tasks
                           </p>
                         </button>
@@ -1088,30 +1094,33 @@ export function GraphBuilder() {
                 </div>
               </div>
 
-              <div className="min-h-0 rounded-lg border theme-border theme-bg-primary px-3 py-3">
+              {/* ── Run detail panel: full width below ── */}
+              <div className="flex-1 rounded-lg border theme-border theme-bg-primary px-5 py-5 overflow-y-auto min-h-[320px]">
                 {!selectedRuntimeRun ? (
-                  <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-                    <GitBranch size={20} className="theme-text-muted" />
-                    <p className="text-xs theme-text-secondary">Select a runtime run to inspect it.</p>
+                  <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+                    <GitBranch size={24} className="theme-text-muted" />
+                    <p className="text-sm theme-text-secondary">Select a runtime run above to inspect it.</p>
                   </div>
                 ) : (
-                  <div className="flex h-full flex-col gap-3">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex h-full flex-col gap-5">
+                    {/* Header */}
+                    <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-[10px] uppercase tracking-[0.35em] theme-text-muted">
                           {formatGraphRunSource(selectedRuntimeRun.source)} Run
                         </p>
-                        <h4 className="mt-1 text-sm font-semibold theme-text-primary">
+                        <h4 className="mt-1 text-base font-semibold theme-text-primary">
                           {selectedRuntimeRun.goal}
                         </h4>
-                        <p className="mt-1 text-[10px] theme-text-muted">
-                          {selectedRuntimeRun.runId} · Updated{' '}
+                        <p className="mt-1.5 text-[11px] theme-text-muted">
+                          <span className="font-mono text-[10px]">{selectedRuntimeRun.runId}</span>
+                          {' · Updated '}
                           {new Date(selectedRuntimeRun.updatedAt).toLocaleString()}
                         </p>
                       </div>
                       <span
                         className={[
-                          'rounded-full border px-2 py-1 text-[10px] uppercase tracking-[0.25em]',
+                          'rounded-full border px-3 py-1 text-[11px] font-medium uppercase tracking-[0.25em]',
                           GRAPH_RUN_STATUS_STYLES[selectedRuntimeRun.status],
                         ].join(' ')}
                       >
@@ -1119,151 +1128,152 @@ export function GraphBuilder() {
                       </span>
                     </div>
 
-                    <div className="grid gap-2 md:grid-cols-3">
-                      <div className="rounded-lg border theme-border bg-white/5 px-3 py-2">
-                        <p className="text-[9px] uppercase tracking-[0.35em] theme-text-muted">
+                    {/* Stat cards */}
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="rounded-lg border theme-border bg-white/5 px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-[0.3em] theme-text-muted">
                           Tasks
                         </p>
-                        <p className="mt-1 text-sm font-semibold theme-text-primary">
+                        <p className="mt-1 text-lg font-bold theme-text-primary">
                           {selectedRuntimeRun.tasks.length}
                         </p>
                       </div>
-                      <div className="rounded-lg border theme-border bg-white/5 px-3 py-2">
-                        <p className="text-[9px] uppercase tracking-[0.35em] theme-text-muted">
+                      <div className="rounded-lg border theme-border bg-white/5 px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-[0.3em] theme-text-muted">
                           Checkpoints
                         </p>
-                        <p className="mt-1 text-sm font-semibold theme-text-primary">
+                        <p className="mt-1 text-lg font-bold theme-text-primary">
                           {selectedRuntimeRun.checkpoints.length}
                         </p>
                       </div>
-                      <div className="rounded-lg border theme-border bg-white/5 px-3 py-2">
-                        <p className="text-[9px] uppercase tracking-[0.35em] theme-text-muted">
+                      <div className="rounded-lg border theme-border bg-white/5 px-4 py-3">
+                        <p className="text-[10px] uppercase tracking-[0.3em] theme-text-muted">
                           Events
                         </p>
-                        <p className="mt-1 text-sm font-semibold theme-text-primary">
+                        <p className="mt-1 text-lg font-bold theme-text-primary">
                           {selectedRuntimeRun.events.length}
                         </p>
                       </div>
                     </div>
 
-                    <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-                      <div className="min-h-0 space-y-2">
-                        <div>
-                          <p className="text-[9px] uppercase tracking-[0.35em] theme-text-muted">
-                            Tasks
+                    {/* Three-column detail: Tasks | Events | Checkpoints */}
+                    <div className="grid min-h-0 flex-1 gap-5 grid-cols-3 overflow-hidden">
+                      {/* Tasks */}
+                      <div className="min-h-0 min-w-0 flex flex-col">
+                        <p className="text-[10px] uppercase tracking-[0.3em] theme-text-muted mb-3">
+                          Tasks
+                        </p>
+                        {selectedRuntimeRun.tasks.length === 0 ? (
+                          <p className="text-[11px] theme-text-muted">
+                            No task records captured yet.
                           </p>
-                          {selectedRuntimeRun.tasks.length === 0 ? (
-                            <p className="mt-2 text-[10px] theme-text-muted">
-                              No task records captured for this run yet.
-                            </p>
-                          ) : (
-                            <div className="mt-2 max-h-48 space-y-1.5 overflow-y-auto pr-1">
-                              {selectedRuntimeRun.tasks.map((task) => (
-                                <div
-                                  key={task.taskId}
-                                  className="rounded-lg border theme-border bg-white/5 px-3 py-2"
-                                >
-                                  <div className="flex items-center justify-between gap-2">
-                                    <p className="truncate text-xs font-medium theme-text-primary">
-                                      {task.description}
-                                    </p>
-                                    <span className="text-[9px] uppercase tracking-wide theme-text-muted">
-                                      {task.status}
-                                    </span>
-                                  </div>
-                                  {(task.assignedRoleId || task.assignedExecutorId) && (
-                                    <p className="mt-1 text-[10px] theme-text-secondary">
-                                      {[task.assignedRoleId, task.assignedExecutorId]
-                                        .filter(Boolean)
-                                        .join(' · ')}
-                                    </p>
-                                  )}
-                                  {task.error && (
-                                    <p className="mt-1 text-[10px] text-rose-300">{task.error}</p>
-                                  )}
+                        ) : (
+                          <div className="space-y-2 overflow-y-auto pr-1">
+                            {selectedRuntimeRun.tasks.map((task) => (
+                              <div
+                                key={task.taskId}
+                                className="rounded-lg border theme-border bg-white/5 px-4 py-3"
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="truncate text-xs font-medium theme-text-primary">
+                                    {task.description}
+                                  </p>
+                                  <span className="flex-shrink-0 text-[10px] uppercase tracking-wide theme-text-muted">
+                                    {task.status}
+                                  </span>
                                 </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        <div>
-                          <p className="text-[9px] uppercase tracking-[0.35em] theme-text-muted">
-                            Recent Events
-                          </p>
-                          {selectedRuntimeRun.events.length === 0 ? (
-                            <p className="mt-2 text-[10px] theme-text-muted">
-                              No runtime events recorded yet.
-                            </p>
-                          ) : (
-                            <div className="mt-2 max-h-32 space-y-1.5 overflow-y-auto pr-1">
-                              {selectedRuntimeRun.events
-                                .slice(-4)
-                                .reverse()
-                                .map((event) => (
-                                  <div
-                                    key={event.eventId}
-                                    className="rounded-lg border theme-border bg-white/5 px-3 py-2"
-                                  >
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-[10px] font-medium theme-text-primary">
-                                        {event.summary}
-                                      </span>
-                                      <span className="text-[9px] uppercase tracking-wide theme-text-muted">
-                                        {event.type}
-                                      </span>
-                                    </div>
-                                    <p className="mt-1 text-[9px] theme-text-muted">
-                                      {new Date(event.timestamp).toLocaleString()}
-                                    </p>
-                                  </div>
-                                ))}
-                            </div>
-                          )}
-                        </div>
+                                {(task.assignedRoleId || task.assignedExecutorId) && (
+                                  <p className="mt-1.5 text-[11px] theme-text-secondary">
+                                    {[task.assignedRoleId, task.assignedExecutorId]
+                                      .filter(Boolean)
+                                      .join(' · ')}
+                                  </p>
+                                )}
+                                {task.error && (
+                                  <p className="mt-1.5 text-[11px] text-rose-300">{task.error}</p>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
-                      <div className="min-h-0">
-                        <p className="text-[9px] uppercase tracking-[0.35em] theme-text-muted">
+                      {/* Recent Events */}
+                      <div className="min-h-0 min-w-0 flex flex-col">
+                        <p className="text-[10px] uppercase tracking-[0.3em] theme-text-muted mb-3">
+                          Recent Events
+                        </p>
+                        {selectedRuntimeRun.events.length === 0 ? (
+                          <p className="text-[11px] theme-text-muted">
+                            No runtime events recorded yet.
+                          </p>
+                        ) : (
+                          <div className="space-y-2 overflow-y-auto pr-1">
+                            {selectedRuntimeRun.events
+                              .slice(-6)
+                              .reverse()
+                              .map((event) => (
+                                <div
+                                  key={event.eventId}
+                                  className="rounded-lg border theme-border bg-white/5 px-4 py-3 overflow-hidden"
+                                >
+                                  <span className="inline-block rounded-full border theme-border bg-white/5 px-2 py-0.5 text-[9px] uppercase tracking-wide theme-text-muted mb-1.5">
+                                    {event.type}
+                                  </span>
+                                  <p className="text-xs font-medium theme-text-primary break-words">
+                                    {event.summary}
+                                  </p>
+                                  <p className="mt-1.5 text-[10px] theme-text-muted">
+                                    {new Date(event.timestamp).toLocaleString()}
+                                  </p>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Runtime Checkpoints */}
+                      <div className="min-h-0 min-w-0 flex flex-col">
+                        <p className="text-[10px] uppercase tracking-[0.3em] theme-text-muted mb-3">
                           Runtime Checkpoints
                         </p>
                         {selectedRuntimeRun.checkpoints.length === 0 ? (
-                          <p className="mt-2 text-[10px] theme-text-muted">
-                            No persisted runtime checkpoints recorded yet.
+                          <p className="text-[11px] theme-text-muted">
+                            No persisted checkpoints yet.
                           </p>
                         ) : (
-                          <div className="mt-2 max-h-[360px] space-y-1.5 overflow-y-auto pr-1">
+                          <div className="space-y-2 overflow-y-auto pr-1">
                             {selectedRuntimeRun.checkpoints
                               .slice()
                               .reverse()
                               .map((checkpoint) => (
                                 <div
                                   key={checkpoint.checkpointId}
-                                  className="rounded-lg border theme-border bg-white/5 px-3 py-2"
+                                  className="rounded-lg border theme-border bg-white/5 px-4 py-3"
                                 >
                                   <div className="flex items-start justify-between gap-2">
                                     <div className="min-w-0">
-                                      <p className="text-xs font-medium theme-text-primary">
+                                      <p className="truncate text-xs font-medium theme-text-primary" title={checkpoint.checkpointId}>
                                         {checkpoint.checkpointId}
                                       </p>
-                                      <p className="mt-1 text-[10px] theme-text-secondary">
+                                      <p className="mt-1.5 text-[11px] theme-text-secondary">
                                         {checkpoint.completedTaskCount}/{checkpoint.totalTaskCount}{' '}
                                         tasks complete
                                       </p>
-                                      <p className="mt-1 text-[9px] theme-text-muted">
+                                      <p className="mt-1 text-[10px] theme-text-muted">
                                         {new Date(checkpoint.timestamp).toLocaleString()}
                                       </p>
                                     </div>
                                     <span
                                       className={[
-                                        'rounded-full border px-1.5 py-px text-[9px] uppercase tracking-wide',
+                                        'flex-shrink-0 rounded-full border px-1.5 py-px text-[9px] uppercase tracking-wide',
                                         GRAPH_RUN_STATUS_STYLES[checkpoint.status],
                                       ].join(' ')}
                                     >
                                       {checkpoint.status}
                                     </span>
                                   </div>
-                                  <div className="mt-2 flex flex-wrap gap-1">
+                                  <div className="mt-2.5 flex flex-wrap gap-1.5">
                                     <button
                                       type="button"
                                       onClick={() =>
@@ -1273,7 +1283,7 @@ export function GraphBuilder() {
                                         )
                                       }
                                       disabled={runtimeActionRunId === selectedRuntimeRun.runId}
-                                      className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-300 transition hover:bg-sky-500/20 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                                      className="rounded-full border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-[10px] text-sky-300 transition hover:bg-sky-500/20 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
                                     >
                                       Restore
                                     </button>
@@ -1286,7 +1296,7 @@ export function GraphBuilder() {
                                         )
                                       }
                                       disabled={runtimeActionRunId === selectedRuntimeRun.runId}
-                                      className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2 py-0.5 text-[10px] text-violet-300 transition hover:bg-violet-500/20 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+                                      className="rounded-full border border-violet-500/40 bg-violet-500/10 px-2.5 py-1 text-[10px] text-violet-300 transition hover:bg-violet-500/20 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
                                     >
                                       Fork to Planning
                                     </button>
@@ -1307,7 +1317,7 @@ export function GraphBuilder() {
         {/* ---------------------------------------------------------------- */}
         {/* Right: Node editor                                                */}
         {/* ---------------------------------------------------------------- */}
-        <div className="flex flex-col gap-1 border-l theme-border pl-2">
+        <div className={`flex flex-col gap-1 border-l theme-border pl-2${subTab === 'runtime' ? ' hidden' : ''}`}>
           <p className="mb-1 text-[9px] uppercase tracking-[0.35em] theme-text-muted">
             Node Editor
           </p>
