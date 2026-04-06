@@ -33,6 +33,8 @@ import {
 } from 'lucide-react';
 import { resolveWorkbenchApiBaseUrl } from '@/lib/agentosClient';
 import { HelpTooltip } from '@/components/ui/HelpTooltip';
+import { useSessionStore } from '@/state/sessionStore';
+import { AgentOSChunkType } from '@/types/agentos';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -414,6 +416,12 @@ export function AgentPlayground() {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
+  // ----- Session store bridge (feeds Session Inspector) -----
+  const upsertSession = useSessionStore((s) => s.upsertSession);
+  const appendEvent = useSessionStore((s) => s.appendEvent);
+  const setActiveSession = useSessionStore((s) => s.setActiveSession);
+  const playgroundSessionId = useRef(`playground-${Date.now()}`);
+
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -452,6 +460,22 @@ export function AgentPlayground() {
     setMessages((prev) => [...prev, assistantMsg]);
     setIsStreaming(true);
 
+    // Bridge: create / activate a session so the Session Inspector can show events
+    const sid = playgroundSessionId.current;
+    upsertSession({
+      id: sid,
+      targetType: 'persona',
+      displayName: 'Playground',
+      status: 'streaming',
+    });
+    setActiveSession(sid);
+    appendEvent(sid, {
+      id: crypto.randomUUID(),
+      timestamp: Date.now(),
+      type: 'log',
+      payload: { message: `User: ${trimmed}` },
+    });
+
     const baseUrl = (() => {
       try { return resolveWorkbenchApiBaseUrl(); } catch { return ''; }
     })();
@@ -464,7 +488,7 @@ export function AgentPlayground() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: trimmed,
-          sessionId: assistantId,
+          sessionId: sid,
           config: {
             systemPrompt: config.systemPrompt,
             model: config.model,
@@ -526,6 +550,12 @@ export function AgentPlayground() {
                   m.id === assistantId ? { ...m, text: m.text + delta } : m
                 )
               );
+              appendEvent(sid, {
+                id: crypto.randomUUID(),
+                timestamp: Date.now(),
+                type: AgentOSChunkType.TEXT_DELTA,
+                payload: { type: AgentOSChunkType.TEXT_DELTA, textDelta: delta } as any,
+              });
               if (settings.traceEvents) {
                 traceEvents.push({
                   type: 'text_delta',
@@ -545,6 +575,27 @@ export function AgentPlayground() {
                   m.id === assistantId ? { ...m, toolCalls: [...(m.toolCalls ?? []), entry] } : m
                 )
               );
+              appendEvent(sid, {
+                id: crypto.randomUUID(),
+                timestamp: Date.now(),
+                type: AgentOSChunkType.TOOL_CALL_REQUEST,
+                payload: {
+                  type: AgentOSChunkType.TOOL_CALL_REQUEST,
+                  toolCalls: [{ id: crypto.randomUUID(), name: entry.name, arguments: entry.args }],
+                } as any,
+              });
+              if (entry.result !== undefined) {
+                appendEvent(sid, {
+                  id: crypto.randomUUID(),
+                  timestamp: Date.now(),
+                  type: AgentOSChunkType.TOOL_RESULT_EMISSION,
+                  payload: {
+                    type: AgentOSChunkType.TOOL_RESULT_EMISSION,
+                    toolName: entry.name,
+                    result: entry.result,
+                  } as any,
+                });
+              }
               if (settings.traceEvents) {
                 traceEvents.push({
                   type: 'tool_call',
@@ -573,6 +624,18 @@ export function AgentPlayground() {
                     : m
                 )
               );
+              appendEvent(sid, {
+                id: crypto.randomUUID(),
+                timestamp: Date.now(),
+                type: AgentOSChunkType.FINAL_RESPONSE,
+                payload: {
+                  type: AgentOSChunkType.FINAL_RESPONSE,
+                  isFinal: true,
+                  usage: usage ?? null,
+                  latencyMs: latencyMs ?? null,
+                } as any,
+              });
+              upsertSession({ id: sid, status: 'idle' });
             } else if (chunkType === 'error') {
               const errMsg = String(chunk.message ?? 'Unknown error');
               setMessages((prev) =>
@@ -582,6 +645,13 @@ export function AgentPlayground() {
                     : m
                 )
               );
+              appendEvent(sid, {
+                id: crypto.randomUUID(),
+                timestamp: Date.now(),
+                type: AgentOSChunkType.ERROR,
+                payload: { type: AgentOSChunkType.ERROR, message: errMsg } as any,
+              });
+              upsertSession({ id: sid, status: 'error' });
             }
           } catch {
             // malformed JSON line — skip
@@ -598,6 +668,7 @@ export function AgentPlayground() {
               : m
           )
         );
+        upsertSession({ id: sid, status: 'error' });
       }
     } finally {
       abortRef.current = null;
@@ -606,7 +677,7 @@ export function AgentPlayground() {
         setIsStreaming(false);
       }
     }
-  }, [input, isStreaming, config, settings]);
+  }, [input, isStreaming, config, settings, upsertSession, appendEvent, setActiveSession]);
 
   const handleStop = useCallback(() => {
     abortRef.current?.();
@@ -623,6 +694,7 @@ export function AgentPlayground() {
   const handleClear = useCallback(() => {
     if (isStreaming) handleStop();
     setMessages([]);
+    playgroundSessionId.current = `playground-${Date.now()}`;
   }, [isStreaming, handleStop]);
 
   // Ctrl+Enter to send

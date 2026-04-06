@@ -138,22 +138,7 @@ export default defineConfig({
     port: 5175,
     open: process.env.VITE_E2E_MODE === 'true' ? false : true,
     proxy: {
-      "/api/agentos": {
-        target: backendTarget,
-        changeOrigin: true,
-        secure: false
-      },
-      "/api/evaluation": {
-        target: backendTarget,
-        changeOrigin: true,
-        secure: false
-      },
-      "/api/planning": {
-        target: backendTarget,
-        changeOrigin: true,
-        secure: false
-      },
-      "/api/playground": {
+      "/api": {
         target: backendTarget,
         changeOrigin: true,
         secure: false
