@@ -79,6 +79,23 @@ export type PlaygroundRuntimeMode = 'live' | 'stub';
 // Helpers
 // ---------------------------------------------------------------------------
 
+export async function resolvePlaygroundRuntime<T extends Record<string, unknown>>(
+  getter: () => Promise<T>
+): Promise<T | null> {
+  try {
+    return await getter();
+  } catch {
+    return null;
+  }
+}
+
+export function getPlaygroundRuntimeMode(
+  runtime: Record<string, unknown> | null,
+  requiredMethod: 'streamText' | 'generateText'
+): PlaygroundRuntimeMode {
+  return runtime && typeof runtime[requiredMethod] === 'function' ? 'live' : 'stub';
+}
+
 /** Estimate USD cost given token counts and a model id. */
 function estimateCost(
   promptTokens: number,
@@ -126,27 +143,54 @@ function buildStubResponse(prompt: string, config: PlaygroundConfig) {
   };
 }
 
-export async function resolvePlaygroundRuntime(
-  getRuntime: () => Promise<unknown> = getAgentOS,
-  loadModule: (specifier: string) => Promise<Record<string, unknown> | null> = async (specifier) => {
-    const runtimeImport = new Function('specifier', 'return import(specifier)') as (
-      specifier: string,
-    ) => Promise<Record<string, unknown>>;
-    return runtimeImport(specifier).catch(() => null);
-  },
-): Promise<PlaygroundRuntime | null> {
-  try {
-    // First try the module exports directly (generateText/streamText are top-level functions)
-    const moduleExports = await loadModule('@framers/agentos');
-    if (moduleExports && typeof moduleExports.generateText === 'function') {
-      return moduleExports as PlaygroundRuntime;
-    }
-    // Fall back to AgentOS instance (legacy path)
-    const runtime = await getRuntime();
-    return runtime && typeof runtime === 'object' ? (runtime as PlaygroundRuntime) : null;
-  } catch {
-    return null;
+/** Try to get a live AgentOS instance. Returns null if unavailable. */
+async function resolveAgentOS(): Promise<{ processRequest: (input: unknown) => AsyncGenerator<Record<string, unknown>> } | null> {
+  const instance = await resolvePlaygroundRuntime(async () => getAgentOS());
+  if (instance && typeof instance.processRequest === 'function') {
+    return instance as unknown as { processRequest: (input: unknown) => AsyncGenerator<Record<string, unknown>> };
   }
+  return null;
+}
+
+async function collectPlaygroundResult(
+  iterator: AsyncIterable<Record<string, unknown>>,
+  config: PlaygroundConfig,
+  runtimeMode: PlaygroundRuntimeMode,
+  startMs: number
+): Promise<CompareResult> {
+  let fullText = '';
+  let promptTokens = 0;
+  let completionTokens = 0;
+
+  for await (const chunk of iterator) {
+    const chunkType = String(chunk.type ?? '');
+    if (chunkType === 'text_delta' && chunk.textDelta) {
+      fullText += String(chunk.textDelta);
+    } else if (chunkType === 'final_response') {
+      const finalText = chunk.finalResponseText ?? chunk.finalResponseTextPlain ?? '';
+      if (finalText) {
+        fullText += String(finalText);
+      }
+    } else if (chunkType === 'usage') {
+      promptTokens = Number(chunk.promptTokens ?? 0);
+      completionTokens = Number(chunk.completionTokens ?? 0);
+    } else if (chunkType === 'error') {
+      throw new Error(String(chunk.message ?? chunk.error ?? 'Unknown error'));
+    }
+  }
+
+  return {
+    text: fullText,
+    toolCalls: [],
+    usage: {
+      promptTokens,
+      completionTokens,
+      totalTokens: promptTokens + completionTokens,
+      estimatedCostUsd: estimateCost(promptTokens, completionTokens, config.model),
+    },
+    latencyMs: Date.now() - startMs,
+    runtimeMode,
+  };
 }
 
 export function getPlaygroundRuntimeMode(
@@ -239,6 +283,7 @@ export default async function playgroundRoutes(fastify: FastifyInstance): Promis
           const systemPrompt = config.systemPrompt ?? 'You are a helpful AI assistant.';
           let promptTokens = 0;
           let completionTokens = 0;
+<<<<<<< HEAD
           const toolCalls: ToolCallEntry[] = [];
 
           // Resolve tool name strings to executable tool definitions.
@@ -269,6 +314,41 @@ export default async function playgroundRoutes(fastify: FastifyInstance): Promis
               toolCalls.push(entry);
               send('tool_call', entry);
             } else if (chunkType === 'finish') {
+=======
+          const conversationId = sessionId ?? `playground-${Date.now()}`;
+
+          const iterator = agentos.processRequest(
+            buildWorkbenchProcessRequestInput({
+              userId: 'playground-user',
+              sessionId: conversationId,
+              conversationId,
+              textInput: prompt,
+              model: config.model,
+              providerId: config.providerId ?? (config.model ? inferProviderId(config.model) : undefined),
+            })
+          );
+
+          for await (const chunk of iterator) {
+            const chunkType = String(chunk.type ?? '');
+            if (chunkType === 'text_delta' && chunk.textDelta) {
+              send('text_delta', { text: chunk.textDelta });
+            } else if (chunkType === 'tool_call_request' && Array.isArray(chunk.toolCalls)) {
+              for (const tc of chunk.toolCalls as Array<Record<string, unknown>>) {
+                const entry: ToolCallEntry = {
+                  name: String(tc.name ?? ''),
+                  args: tc.arguments ?? tc.args,
+                  result: tc.result,
+                };
+                toolCalls.push(entry);
+                send('tool_call', entry);
+              }
+            } else if (chunkType === 'final_response') {
+              const finalText = chunk.finalResponseText ?? chunk.finalResponseTextPlain ?? '';
+              if (finalText) {
+                send('text_delta', { text: String(finalText) });
+              }
+            } else if (chunkType === 'usage') {
+>>>>>>> 32362de (Add workbench tools, telemetry stubs, and refactor playground runtime)
               promptTokens = Number(chunk.promptTokens ?? 0);
               completionTokens = Number(chunk.completionTokens ?? 0);
             }
@@ -341,6 +421,7 @@ export default async function playgroundRoutes(fastify: FastifyInstance): Promis
       async function runConfig(config: PlaygroundConfig): Promise<CompareResult> {
         const startMs = Date.now();
         try {
+<<<<<<< HEAD
           if (runtimeMode === 'live') {
             const liveRuntime = agentos as PlaygroundRuntime & {
               generateText: (opts: Record<string, unknown>) => Promise<Record<string, unknown>>;
@@ -375,6 +456,19 @@ export default async function playgroundRoutes(fastify: FastifyInstance): Promis
               latencyMs: Date.now() - startMs,
               runtimeMode,
             };
+=======
+          if (agentos) {
+            const iterator = agentos.processRequest(
+              buildWorkbenchProcessRequestInput({
+                userId: 'playground-user',
+                sessionId: `compare-${Date.now()}`,
+                textInput: prompt,
+                model: config.model,
+                providerId: config.providerId ?? (config.model ? inferProviderId(config.model) : undefined),
+              })
+            );
+            return await collectPlaygroundResult(iterator, config, runtimeMode, startMs);
+>>>>>>> 32362de (Add workbench tools, telemetry stubs, and refactor playground runtime)
           }
           // Stub path
           const stub = buildStubResponse(prompt, config);

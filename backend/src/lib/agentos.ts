@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { createWorkbenchCognitiveMemoryFactory } from './workbenchCognitiveMemory';
+import { workbenchTools } from './workbenchTools';
 import {
   WORKBENCH_RUNTIME_RAG_CHUNK_OVERLAP,
   WORKBENCH_RUNTIME_RAG_CHUNK_SIZE,
@@ -297,6 +298,7 @@ export async function initializeAgentOS() {
           conflictResolutionStrategy: 'skip_conflicting',
         },
       },
+      tools: workbenchTools,
       toolOrchestratorConfig: {} as any,
       toolPermissionManagerConfig: {} as any,
       conversationManagerConfig: {} as any,

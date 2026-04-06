@@ -1970,4 +1970,187 @@ export default async function agentosRoutes(fastify: FastifyInstance) {
     }
     return { execution, seats: [] };
   });
+
+  // ---------------------------------------------------------------------------
+  // Telemetry stubs — the frontend client expects these endpoints
+  // ---------------------------------------------------------------------------
+
+  /** GET /api/agentos/telemetry/task-outcomes — rolling window summaries */
+  fastify.get('/telemetry/task-outcomes', async (request) => {
+    const qs = request.query as Record<string, string | undefined>;
+    const limit = Math.min(Number(qs.limit) || 10, 100);
+    const page = Math.max(Number(qs.page) || 1, 1);
+    return {
+      windows: [],
+      pagination: {
+        page,
+        limit,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        sortBy: qs.sortBy || 'updated_at',
+        sortDir: qs.sortDir || 'desc',
+      },
+      totals: {
+        windowCount: 0,
+        returnedWindowCount: 0,
+        sampleCount: 0,
+        successCount: 0,
+        partialCount: 0,
+        failedCount: 0,
+        successRate: 1,
+        averageScore: 1,
+        weightedSuccessRate: 1,
+      },
+      filters: {
+        scopeMode: qs.scopeMode || null,
+        organizationId: qs.organizationId || null,
+        personaId: qs.personaId || null,
+        scopeContains: qs.scopeContains || null,
+        limit,
+        page,
+        sortBy: qs.sortBy || 'updated_at',
+        sortDir: qs.sortDir || 'desc',
+        includeEntries: qs.includeEntries === 'true',
+      },
+    };
+  });
+
+  /** GET /api/agentos/telemetry/config — runtime config */
+  fastify.get('/telemetry/config', async () => {
+    return {
+      source: 'workbench-stub',
+      tenantRouting: {
+        mode: 'single_tenant',
+        defaultOrganizationId: 'workbench',
+        strictOrganizationIsolation: false,
+      },
+      taskOutcomeTelemetry: {
+        enabled: true,
+        rollingWindowSize: 20,
+        scope: 'global',
+        emitAlerts: true,
+        alertBelowWeightedSuccessRate: 0.5,
+        alertMinSamples: 3,
+        alertCooldownMs: 60000,
+      },
+      adaptiveExecution: {
+        enabled: false,
+        minSamples: 5,
+        minWeightedSuccessRate: 0.6,
+        forceAllToolsWhenDegraded: false,
+      },
+      turnPlanning: {
+        enabled: false,
+      },
+    };
+  });
+
+  /** GET /api/agentos/telemetry/alerts — paginated alert history */
+  fastify.get('/telemetry/alerts', async (request) => {
+    const qs = request.query as Record<string, string | undefined>;
+    const limit = Math.min(Number(qs.limit) || 8, 100);
+    const page = Math.max(Number(qs.page) || 1, 1);
+    return {
+      alerts: [],
+      pagination: {
+        page,
+        limit,
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false,
+        sortBy: qs.sortBy || 'alert_timestamp',
+        sortDir: qs.sortDir || 'desc',
+      },
+      totals: {
+        alertCount: 0,
+        acknowledgedCount: 0,
+        unacknowledgedCount: 0,
+        criticalCount: 0,
+      },
+      filters: {
+        scopeMode: qs.scopeMode || null,
+        organizationId: qs.organizationId || null,
+        personaId: qs.personaId || null,
+        scopeContains: qs.scopeContains || null,
+        severity: qs.severity || null,
+        acknowledged: qs.acknowledged != null ? qs.acknowledged === 'true' : null,
+        limit,
+        page,
+        sortBy: qs.sortBy || 'alert_timestamp',
+        sortDir: qs.sortDir || 'desc',
+      },
+    };
+  });
+
+  /** POST /api/agentos/telemetry/alerts/:alertId/acknowledge */
+  fastify.post('/telemetry/alerts/:alertId/acknowledge', async (request) => {
+    const { alertId } = request.params as { alertId: string };
+    const body = request.body as { acknowledged?: boolean; userId?: string } | undefined;
+    return {
+      alert: {
+        alertId,
+        scopeKey: 'global',
+        scopeMode: 'global',
+        organizationId: null,
+        personaId: null,
+        severity: 'info',
+        reason: 'stub',
+        threshold: 0,
+        value: 0,
+        sampleCount: 0,
+        alertTimestamp: new Date().toISOString(),
+        streamId: null,
+        sessionId: null,
+        gmiInstanceId: null,
+        personaStreamId: null,
+        acknowledgedAt: body?.acknowledged ? new Date().toISOString() : null,
+        acknowledgedBy: body?.userId || null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    };
+  });
+
+  /** GET /api/agentos/telemetry/alerts/retention */
+  fastify.get('/telemetry/alerts/retention', async () => {
+    return {
+      config: {
+        enabled: true,
+        retentionDays: 30,
+        maxRows: 10000,
+        pruneIntervalMs: 3600000,
+      },
+      lastPruneAt: null,
+      pruneInFlight: false,
+      lastSummary: null,
+    };
+  });
+
+  /** POST /api/agentos/telemetry/alerts/prune */
+  fastify.post('/telemetry/alerts/prune', async () => {
+    const now = new Date().toISOString();
+    const config = {
+      enabled: true,
+      retentionDays: 30,
+      maxRows: 10000,
+      pruneIntervalMs: 3600000,
+    };
+    return {
+      summary: {
+        config,
+        deletedByAge: 0,
+        deletedByOverflow: 0,
+        totalDeleted: 0,
+        remainingRows: 0,
+        prunedAt: now,
+      },
+      status: {
+        config,
+        lastPruneAt: now,
+        pruneInFlight: false,
+        lastSummary: null,
+      },
+    };
+  });
 }
