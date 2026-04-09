@@ -10,6 +10,7 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { getAgentOS } from '../lib/agentos';
 import { resolveTools, listAvailableToolNames } from '../services/toolCatalog';
+import { streamText as agentosStreamText, generateText as agentosGenerateText } from '@framers/agentos';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -74,39 +75,31 @@ interface UsageInfo {
   estimatedCostUsd: number;
 }
 
-type PlaygroundRuntime = Record<string, unknown>;
 export type PlaygroundRuntimeMode = 'live' | 'stub';
 type PlaygroundRuntimeMethodName = 'streamText' | 'generateText';
 
-type PlaygroundRuntimeModule = Partial<{
+type PlaygroundRuntimeModule = {
   streamText: (opts: Record<string, unknown>) => {
     fullStream: AsyncIterable<Record<string, unknown>>;
     usage?: Promise<Record<string, unknown>>;
   };
   generateText: (opts: Record<string, unknown>) => Promise<Record<string, unknown>>;
-}>;
-
-const runtimeImport = new Function('specifier', 'return import(specifier)') as (
-  specifier: string
-) => Promise<PlaygroundRuntimeModule>;
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-export async function resolvePlaygroundRuntime<T extends Record<string, unknown>>(
-  getter: () => Promise<T>,
-  moduleGetter?: () => Promise<PlaygroundRuntimeModule | null>
-): Promise<(T & PlaygroundRuntimeModule) | PlaygroundRuntimeModule | null> {
-  try {
-    const moduleRuntime = moduleGetter ? await moduleGetter() : null;
-    if (moduleRuntime?.streamText || moduleRuntime?.generateText) {
-      return moduleRuntime;
-    }
-    return await getter();
-  } catch {
-    return null;
-  }
+/**
+ * Build a runtime object from the statically-imported @framers/agentos SDK
+ * functions. This avoids the dynamic-import-via-new-Function trick which
+ * breaks under ts-node ("A dynamic import callback was not specified").
+ */
+function getStaticRuntime(): PlaygroundRuntimeModule {
+  return {
+    streamText: agentosStreamText as unknown as PlaygroundRuntimeModule['streamText'],
+    generateText: agentosGenerateText as unknown as PlaygroundRuntimeModule['generateText'],
+  };
 }
 
 /** Estimate USD cost given token counts and a model id. */
@@ -156,18 +149,15 @@ function buildStubResponse(prompt: string, config: PlaygroundConfig) {
   };
 }
 
-/** Try to get a live AgentOS instance. Returns null if unavailable. */
-async function resolveAgentOS(): Promise<PlaygroundRuntime | null> {
-  return resolvePlaygroundRuntime(
-    async () => (await getAgentOS()) as unknown as PlaygroundRuntime,
-    async () => {
-      try {
-        return await runtimeImport('@framers/agentos');
-      } catch {
-        return null;
-      }
-    }
-  );
+/** Return the static @framers/agentos runtime (streamText / generateText). */
+async function resolveAgentOS(): Promise<PlaygroundRuntimeModule | null> {
+  try {
+    const runtime = getStaticRuntime();
+    if (typeof runtime.streamText === 'function') return runtime;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 async function collectPlaygroundResult(
@@ -212,7 +202,7 @@ async function collectPlaygroundResult(
 }
 
 export function getPlaygroundRuntimeMode(
-  runtime: PlaygroundRuntime | null,
+  runtime: PlaygroundRuntimeModule | null,
   methodName: PlaygroundRuntimeMethodName
 ): PlaygroundRuntimeMode {
   return runtime && typeof runtime[methodName] === 'function' ? 'live' : 'stub';
@@ -301,18 +291,7 @@ export default async function playgroundRoutes(fastify: FastifyInstance): Promis
 
       try {
         if (runtimeMode === 'live') {
-          const liveRuntime = agentos as PlaygroundRuntime & {
-            streamText: (opts: Record<string, unknown>) => {
-              fullStream: AsyncIterable<Record<string, unknown>>;
-              usage?: Promise<Record<string, unknown>>;
-            };
-          };
-          const streamFn = liveRuntime.streamText as (
-            opts: Record<string, unknown>
-          ) => {
-            fullStream: AsyncIterable<Record<string, unknown>>;
-            usage?: Promise<Record<string, unknown>>;
-          };
+          const streamFn = agentos!.streamText;
 
           const systemPrompt = config.systemPrompt ?? 'You are a helpful AI assistant.';
           const toolCalls: ToolCallEntry[] = [];
@@ -428,12 +407,7 @@ export default async function playgroundRoutes(fastify: FastifyInstance): Promis
         const startMs = Date.now();
         try {
           if (runtimeMode === 'live') {
-            const liveRuntime = agentos as PlaygroundRuntime & {
-              generateText: (opts: Record<string, unknown>) => Promise<Record<string, unknown>>;
-            };
-            const genFn = liveRuntime.generateText as (
-              opts: Record<string, unknown>
-            ) => Promise<Record<string, unknown>>;
+            const genFn = agentos!.generateText;
             const compareTools = config.tools?.length
               ? resolveTools(config.tools, { includeAllForged: true })
               : undefined;

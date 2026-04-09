@@ -68,7 +68,7 @@ Then ingest via the RAG tab's upload zone before recording.
 7. When `web_search` fires, pause briefly to show the tool call expanding in the chat (collapsible section with args + result)
 8. Wait for the full response
 9. Click the **Session Inspector** panel on the right → show tool call details, latency numbers, token usage
-10. Type a follow-up: **"Compare their GitHub star counts"** — show the agent remembering context
+10. Type a follow-up: **"List those 3 repo names again"** — show the agent remembering context
 
 ### Captions
 
