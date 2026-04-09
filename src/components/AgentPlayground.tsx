@@ -593,7 +593,7 @@ export function AgentPlayground() {
                 id: crypto.randomUUID(),
                 timestamp: Date.now(),
                 type: AgentOSChunkType.TEXT_DELTA,
-                payload: { type: AgentOSChunkType.TEXT_DELTA, textDelta: delta } as any,
+                payload: { type: AgentOSChunkType.TEXT_DELTA, textDelta: delta, streamId: assistantId, personaId: 'agent' } as any,
               });
               if (settings.traceEvents) {
                 traceEvents.push({
@@ -669,6 +669,8 @@ export function AgentPlayground() {
                 type: AgentOSChunkType.FINAL_RESPONSE,
                 payload: {
                   type: AgentOSChunkType.FINAL_RESPONSE,
+                  streamId: assistantId,
+                  personaId: 'agent',
                   isFinal: true,
                   usage: usage ?? null,
                   latencyMs: latencyMs ?? null,

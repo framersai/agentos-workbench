@@ -63,12 +63,12 @@ Then ingest via the RAG tab's upload zone before recording.
 2. In the left panel, select model: `openai:gpt-4o`
 3. Type system instructions: `You are a research assistant. Use tools to find real information.`
 4. In the tools selector, enable `web_search`
-5. In the chat input, type: **"Search the web for the latest AI agent frameworks released in 2026 and summarize the top 3"**
+5. In the chat input, type: **"Search the web for the latest AI agent exploits and vulnerabilities discovered this year and summarize the top 3"**
 6. Press Enter — show tokens streaming in real time
 7. When `web_search` fires, pause briefly to show the tool call expanding in the chat (collapsible section with args + result)
 8. Wait for the full response
 9. Click the **Session Inspector** panel on the right → show tool call details, latency numbers, token usage
-10. Type a follow-up: **"List those 3 repo names again"** — show the agent remembering context
+10. Type a follow-up: **"Which of those 3 is the most critical for production deployments?"** — show the agent remembering context and reasoning over prior results
 
 ### Captions
 
@@ -76,7 +76,7 @@ Then ingest via the RAG tab's upload zone before recording.
 | --------- | ------------------------------------------ |
 | 0-5s      | Select model and set instructions          |
 | 5-12s     | Enable the web_search tool                 |
-| 12-20s    | Ask a research question                    |
+| 12-20s    | Ask about AI agent security vulnerabilities|
 | 20-35s    | Tokens stream in real time                 |
 | 35-45s    | Tool call fires — inspect args and results |
 | 45-60s    | Agent synthesizes a structured answer      |
@@ -84,7 +84,7 @@ Then ingest via the RAG tab's upload zone before recording.
 
 ### Why This Demo Matters
 
-Shows the core agent loop: persona + streaming + automatic tool calling + real-time inspection. This is the first thing every visitor wants to see.
+Shows the core agent loop: persona + streaming + automatic tool calling + real-time inspection. The prompt uses live news so the results are visibly fresh and verifiable — proving the tool call is real, not cached. This is the first thing every visitor wants to see.
 
 ---
 
