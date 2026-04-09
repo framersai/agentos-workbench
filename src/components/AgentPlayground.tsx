@@ -488,6 +488,10 @@ export function AgentPlayground() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: trimmed,
+          messages: [...messages, userMsg].map((m) => ({
+            role: m.role,
+            content: m.text,
+          })),
           sessionId: sid,
           config: {
             systemPrompt: config.systemPrompt,

@@ -139,7 +139,7 @@ It still shows real multi-agent coordination, but it matches the product that ac
 
 ---
 
-## Demo 3: Graph Builder — Build, Run & Inspect Agent Workflows
+## Demo 3: Graph Builder — Customer Support Ticket Resolution Pipeline
 
 **Duration:** 90-120 seconds
 **Tab:** Graph Builder (top nav row 3)
@@ -147,24 +147,30 @@ It still shows real multi-agent coordination, but it matches the product that ac
 
 ### Pre-requisite
 
-Have at least one prior workflow or agency run completed so the **Runtime Runs** tab has persisted data to show. Running Demo 2 (Multi-Agent Agency) beforehand is ideal — it produces completed agency and workflow runs.
+1. Have at least one prior workflow or agency run completed so the **Runtime Runs** tab has persisted data to show. Running Demo 2 (Multi-Agent Agency) beforehand is ideal.
+
+### Scenario
+
+A 5-node pipeline modelling customer support ticket resolution. The scenario is designed so each node logically depends on the previous one — classification before CRM lookup, CRM data before drafting, draft before compliance check. The run is simulated (nodes light up in BFS order with realistic delays), so the value is in the visual storytelling, not live data passing.
 
 ### Steps
 
 1. Click the **Graph Builder** tab in the top navigation
 2. Note the status badges: **GRAPH BUILDER MIXED**, **RUNTIME CONNECTED**, **PERSISTED RUNS** — pause briefly so they're visible
-3. In the **Palette** (left side), click **GMI** to add a node → in the **Node Editor** (right side), set Label to "Draft Content" and type instructions: `Write a short blog post about AI agents`
-4. Click **Tool** in the palette to add a second node → set Label to "Web Research", set ToolName to `web_search`, set Args to `{"query": "AI agent frameworks 2026"}`
-5. Click **Human** in the palette → set Label to "Final Approval"
-6. Click **Guardrail** in the palette → set Label to "Safety Check"
-7. Wire up the graph using the **Connects To** checkboxes in each node's editor:
-   - Click the "Draft Content" node on the canvas → in its Node Editor, check the **Tool 1** checkbox under Connects To
-   - Click the "Web Research" node → check the **Guardrail 1** checkbox
-   - Click the "Safety Check" node → check the **Human 1** checkbox
-8. Pause to show the complete graph on the canvas — a 4-node pipeline with GMI → Tool → Guardrail → Human
-10. Switch to the **YAML** tab (next to Canvas) → show the auto-generated workflow definition
+3. In the **Palette** (left side), click **GMI** to add a node → in the **Node Editor** (right side), set Label to "Classify Ticket" and type instructions: `Extract intent, sentiment, priority, and language from the ticket.`
+4. Click **Tool** in the palette → set Label to "CRM Lookup", set ToolName to `crm_lookup`, set Args to `{"customer_id": "{from_upstream}"}`
+5. Click **GMI** in the palette → set Label to "Draft Reply" and type instructions: `Draft an empathetic response in the ticket's language. Check refund eligibility against plan tier.`
+6. Click **Guardrail** in the palette → set Label to "Compliance Check"
+7. Click **Human** in the palette → set Label to "Agent Approval"
+8. Wire up the graph using the **Connects To** checkboxes in each node's editor:
+   - Click "Classify Ticket" → check **Tool 1** (CRM Lookup)
+   - Click "CRM Lookup" → check **GMI 2** (Draft Reply)
+   - Click "Draft Reply" → check **Guardrail 1** (Compliance Check)
+   - Click "Compliance Check" → check **Human 1** (Agent Approval)
+9. Pause to show the complete 5-node pipeline: GMI → Tool → GMI → Guardrail → Human
+10. Switch to the **YAML** tab (next to Canvas) → show the auto-generated workflow definition with the dependency chain
 11. Switch back to **Canvas**, click **Compile** → show the workflow compiling
-12. Click **Run** → show the workflow executing
+12. Click **Run** → watch nodes light up in sequence: Classify Ticket → CRM Lookup → Draft Reply → Compliance Check → Agent Approval
 13. Click **Checkpoint** to save the current graph as a local snapshot
 14. Switch to the **Local Snapshots** tab → show the saved snapshot (stored in browser session only)
 15. Switch to the **Runtime Runs** tab → show the list of persisted runs with status badges (COMPLETED)
@@ -172,19 +178,21 @@ Have at least one prior workflow or agency run completed so the **Runtime Runs**
 
 ### Captions
 
-| Timestamp | Caption                                                |
-| --------- | ------------------------------------------------------ |
-| 0-10s     | Graph Builder with live runtime connection             |
-| 10-25s    | Add nodes from palette: GMI, Tool, Guardrail, Human    |
-| 25-40s    | Configure: GMI instructions, Tool name + args          |
-| 40-55s    | Wire connections via Connects To checkboxes             |
-| 55-65s    | YAML tab: auto-generated workflow definition           |
-| 65-80s    | Compile and Run the workflow                           |
-| 80-100s   | Runtime Runs: inspect persisted runs and checkpoints   |
+| Timestamp | Caption                                                        |
+| --------- | -------------------------------------------------------------- |
+| 0-10s     | Graph Builder with live runtime connection                     |
+| 10-20s    | Node 1: Classify Ticket — extract intent, sentiment, priority  |
+| 20-30s    | Node 2: CRM Lookup — needs customer ID from classification     |
+| 30-40s    | Node 3: Draft Reply — uses classification + CRM data           |
+| 40-50s    | Node 4-5: Compliance guardrail → Human approval gate           |
+| 50-60s    | Wire the dependency chain via Connects To checkboxes           |
+| 60-70s    | YAML tab: auto-generated workflow with ordered dependencies    |
+| 70-85s    | Run: watch execution cascade — each node waits for its input   |
+| 85-100s   | Runtime Runs: inspect persisted runs and checkpoints           |
 
 ### Why This Demo Matters
 
-Shows the full workflow lifecycle in one screen: visually author a graph with diverse node types (LLM, tools, routers, guardrails, human-in-the-loop), compile it, run it against a live runtime, and then inspect persisted run history with checkpoints. The combination of visual authoring + runtime execution + run inspection in a single view is unique.
+Shows the full workflow lifecycle with a real-world scenario: a customer support ticket flows through classification, CRM enrichment, response drafting, compliance checking, and human approval — each step genuinely dependent on the last. The ordered execution is visible on the canvas as nodes light up sequentially, making the dependency chain tangible. Uses every node type in the palette (GMI ×2, Tool, Guardrail, Human).
 
 ---
 
@@ -418,6 +426,54 @@ Keep each video under 5 MB. Use HandBrake or ffmpeg to compress:
 
 ```bash
 ffmpeg -i input.mp4 -vcodec libx264 -crf 28 -preset slow -vf scale=1920:1080 output.mp4
+```
+
+---
+
+## Thumbnail Prompts
+
+Image generation prompts for each demo video thumbnail. Style: dark-themed UI screenshot aesthetic, 1920x1080, cinematic lighting, minimal text, developer-tool feel.
+
+### Demo 1: Agent Playground
+
+```
+A dark-themed developer workbench UI showing a live chat conversation between a human and an AI agent. The left panel has a model selector and system instructions field. The center shows a streaming chat response with a collapsible tool call card mid-conversation labelled "web_search". The right panel shows a session inspector with token count and latency metrics. Glowing blue accent highlights on active elements. Dark background, modern monospace font, 1920x1080, cinematic UI screenshot style.
+```
+
+### Demo 2: Multi-Agent Agency
+
+```
+A dark-themed developer workbench showing three AI agent seats arranged in a tribunal layout. Each seat has a distinct role icon: a gavel for "Constitutional Lawyer", a rocket for "AI Startup Founder", and a raised fist for "Digital Rights Activist". The center shows a shared goal banner reading "AI Legal Personhood". Streamed text outputs flow from each seat into a central compose area. Glowing purple and blue accents, dark background, 1920x1080, cinematic UI screenshot style.
+```
+
+### Demo 3: Graph Builder
+
+```
+A dark-themed visual workflow canvas showing a 5-node pipeline for customer support ticket resolution. Nodes are connected left-to-right: a brain icon labelled "Classify Ticket", a wrench icon labelled "CRM Lookup", a brain icon labelled "Draft Reply", a shield icon labelled "Compliance Check", and a person icon labelled "Agent Approval". Glowing connection lines between nodes. The first two nodes glow green (completed), the third pulses amber (running), the last two are dim (pending). Dark background, node-graph editor aesthetic, 1920x1080, cinematic UI screenshot style.
+```
+
+### Demo 4: Tool Forge
+
+```
+A dark-themed developer workbench showing an AI generating a new tool at runtime. The left panel has a text field with "A tool that fetches cryptocurrency prices". The center shows generated code with a function definition, input schema, and description. The right panel shows a judge verdict with green checkmarks for Correctness, Safety, and Efficiency scores. A glowing forge/anvil motif in the background. Dark background, 1920x1080, cinematic UI screenshot style.
+```
+
+### Demo 5: RAG Pipeline
+
+```
+A dark-themed developer workbench showing a retrieval-augmented generation pipeline. The left panel shows document cards being ingested with chunk count badges. The center shows a semantic search results list with relevance score bars (0.85, 0.72, 0.68) and highlighted source snippets. A strategy toggle shows three options: Vector, HyDE, GraphRAG with HyDE selected. The right panel shows an evaluation suite with green pass and red fail badges per question. Dark background, 1920x1080, cinematic UI screenshot style.
+```
+
+### Demo 6: Memory Dashboard
+
+```
+A dark-themed developer workbench showing a cognitive memory dashboard. Four tier cards across the top: Working, Episodic, Semantic, Procedural — each with a circular health indicator (green, yellow, green, green). Below, a timeline visualization shows memory operations: WRITE, RETRIEVE, CONSOLIDATE events as colored dots on a horizontal axis. The right panel shows a memory inspector with a selected entry, confidence score badge, and source metadata. Subtle brain-network pattern in the background. Dark background, 1920x1080, cinematic UI screenshot style.
+```
+
+### Demo 7: Capability Discovery
+
+```
+A dark-themed developer workbench showing a capability browser catalogue. Filter pills at the top: All, Tools, Skills, Extensions, Channels. Below, a grid of capability cards — each with a kind icon, tier badge (T0, T1, T2), and short description. One card is expanded showing a JSON schema panel, usage example code snippet, and a "Try It" button. A search box at the top has "web search" typed with matching results highlighted. Dark background, 1920x1080, cinematic UI screenshot style.
 ```
 
 ---

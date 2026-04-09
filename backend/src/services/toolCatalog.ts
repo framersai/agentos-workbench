@@ -39,6 +39,32 @@ export interface PersistedForgedTool {
   createdAt: number;
 }
 
+function normalizeToolName(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function forgedToolKey(tool: Pick<PersistedForgedTool, 'name' | 'description'>): string {
+  return normalizeToolName(tool.name) || normalizeToolName(tool.description);
+}
+
+function dedupePersistedTools(tools: PersistedForgedTool[]): PersistedForgedTool[] {
+  const byKey = new Map<string, PersistedForgedTool>();
+
+  for (const tool of tools) {
+    const key = forgedToolKey(tool);
+    const existing = byKey.get(key);
+    if (!existing || tool.createdAt >= existing.createdAt) {
+      byKey.set(key, tool);
+    }
+  }
+
+  return Array.from(byKey.values()).sort((a, b) => b.createdAt - a.createdAt);
+}
+
 // ---------------------------------------------------------------------------
 // Persistence (JSON file)
 // ---------------------------------------------------------------------------
@@ -53,7 +79,7 @@ function loadPersistedTools(): PersistedForgedTool[] {
     if (fs.existsSync(PERSIST_PATH)) {
       const raw = fs.readFileSync(PERSIST_PATH, 'utf-8');
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) return dedupePersistedTools(parsed);
     }
   } catch {
     // Corrupt file — start fresh.
@@ -62,7 +88,7 @@ function loadPersistedTools(): PersistedForgedTool[] {
 }
 
 function savePersistedTools(tools: PersistedForgedTool[]): void {
-  fs.writeFileSync(PERSIST_PATH, JSON.stringify(tools, null, 2), 'utf-8');
+  fs.writeFileSync(PERSIST_PATH, JSON.stringify(dedupePersistedTools(tools), null, 2), 'utf-8');
 }
 
 // ---------------------------------------------------------------------------
@@ -84,19 +110,23 @@ function getForgedTools(): PersistedForgedTool[] {
  */
 export function registerForgedTool(tool: PersistedForgedTool): void {
   const tools = getForgedTools();
-  // Replace existing tool with same id, or append.
+  const key = forgedToolKey(tool);
+  const existingByKey = tools.findIndex((t) => forgedToolKey(t) === key);
   const idx = tools.findIndex((t) => t.id === tool.id);
-  if (idx >= 0) {
+  if (existingByKey >= 0) {
+    tools[existingByKey] = tool;
+  } else if (idx >= 0) {
     tools[idx] = tool;
   } else {
     tools.push(tool);
   }
+  forgedTools = dedupePersistedTools(tools);
   savePersistedTools(tools);
 }
 
 /** Return all persisted forged tools. */
 export function listForgedTools(): PersistedForgedTool[] {
-  return getForgedTools();
+  return dedupePersistedTools(getForgedTools());
 }
 
 /** Update usage stats for a forged tool after execution. */
@@ -385,10 +415,10 @@ export function resolveTools(
   }
 
   // Include forged tools.
-  const forged = getForgedTools();
+  const forged = dedupePersistedTools(getForgedTools());
   const requestedSet = new Set(toolNames);
   for (const tool of forged) {
-    const toolKey = tool.name.toLowerCase().replace(/\s+/g, '_');
+    const toolKey = normalizeToolName(tool.name);
     if (options?.includeAllForged || requestedSet.has(toolKey) || requestedSet.has(tool.id)) {
       result[toolKey] = forgedToolToDefinition(tool);
     }
@@ -400,8 +430,6 @@ export function resolveTools(
 /** Return all available tool names (built-in + forged). */
 export function listAvailableToolNames(): string[] {
   const builtIn = Object.keys(BUILTIN_TOOLS);
-  const forged = getForgedTools().map(
-    (t) => t.name.toLowerCase().replace(/\s+/g, '_'),
-  );
-  return [...builtIn, ...forged];
+  const forged = dedupePersistedTools(getForgedTools()).map((t) => normalizeToolName(t.name));
+  return [...new Set([...builtIn, ...forged])];
 }

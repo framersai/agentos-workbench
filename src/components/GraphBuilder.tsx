@@ -55,6 +55,9 @@ import {
   ChevronRight,
   X,
   Plus,
+  Check,
+  AlertTriangle,
+  Clock,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -97,6 +100,27 @@ export interface GraphCheckpoint {
   label: string;
   savedAt: number;
   nodeCount: number;
+}
+
+// ---------------------------------------------------------------------------
+// Run output structured types
+// ---------------------------------------------------------------------------
+
+type NodeExecState = 'idle' | 'running' | 'completed' | 'failed';
+
+interface RunOutputEntry {
+  /** Timestamp when this entry was recorded */
+  timestamp: number;
+  /** The node this entry relates to (if any) */
+  nodeId: string | null;
+  nodeLabel: string | null;
+  nodeType: GraphNodeType | null;
+  /** Status of this step */
+  status: 'info' | 'node_start' | 'node_complete' | 'node_error' | 'done';
+  /** Display text */
+  text: string;
+  /** Duration in ms (set on completion) */
+  durationMs?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -239,6 +263,133 @@ function formatGraphRunSource(source: GraphRunRecord['source']): string {
   return 'Workflow';
 }
 
+/**
+ * Attempts to match a streaming output line to a graph node and determine its status.
+ *
+ * The backend emits lines in these formats:
+ *   - `[node:TYPE] LABEL — executing`
+ *   - `[node:TYPE] LABEL — done`
+ *   - `[workflow] starting — N node(s)`
+ *   - `[workflow] execution complete`
+ *   - `[graph-run] EXECUTION_ID`
+ *   - `[error] MESSAGE`
+ *   - `[done]`
+ */
+function parseStreamLine(
+  line: string,
+  nodes: GraphNode[],
+  nodeStartTimes: Map<string, number>,
+): RunOutputEntry {
+  const now = Date.now();
+  const trimmed = line.trim();
+
+  // Match the backend's exact format: [node:TYPE] LABEL — STATUS
+  const nodeMatch = trimmed.match(/^\[node:(\w+)\]\s+(.+?)\s+[—-]\s+(\w+)$/);
+  if (nodeMatch) {
+    const [, nodeType, label, action] = nodeMatch;
+    // Find the matching graph node by label (primary) or type (fallback)
+    const node = nodes.find((n) => n.label === label)
+      ?? nodes.find((n) => n.label.toLowerCase() === label.toLowerCase())
+      ?? nodes.find((n) => n.type === nodeType && !nodeStartTimes.has(n.id));
+
+    if (node) {
+      if (action === 'executing') {
+        nodeStartTimes.set(node.id, now);
+        return {
+          timestamp: now,
+          nodeId: node.id,
+          nodeLabel: node.label,
+          nodeType: node.type,
+          status: 'node_start',
+          text: trimmed,
+        };
+      }
+      if (action === 'done') {
+        const startTime = nodeStartTimes.get(node.id);
+        const durationMs = startTime ? now - startTime : undefined;
+        return {
+          timestamp: now,
+          nodeId: node.id,
+          nodeLabel: node.label,
+          nodeType: node.type,
+          status: 'node_complete',
+          text: trimmed,
+          durationMs,
+        };
+      }
+      if (action === 'failed' || action === 'error') {
+        const startTime = nodeStartTimes.get(node.id);
+        const durationMs = startTime ? now - startTime : undefined;
+        return {
+          timestamp: now,
+          nodeId: node.id,
+          nodeLabel: node.label,
+          nodeType: node.type,
+          status: 'node_error',
+          text: trimmed,
+          durationMs,
+        };
+      }
+    }
+  }
+
+  // Fallback: try to match node references by label for non-standard formats
+  for (const node of nodes) {
+    const labelLower = node.label.toLowerCase();
+    const lineLower = trimmed.toLowerCase();
+
+    if (!lineLower.includes(labelLower) && !lineLower.includes(node.id)) continue;
+
+    if (/\b(start|begin|executing|running|processing)\b/i.test(trimmed)) {
+      nodeStartTimes.set(node.id, now);
+      return {
+        timestamp: now, nodeId: node.id, nodeLabel: node.label, nodeType: node.type,
+        status: 'node_start', text: trimmed,
+      };
+    }
+    if (/\b(complet|finish|done|success)\b/i.test(trimmed)) {
+      const startTime = nodeStartTimes.get(node.id);
+      return {
+        timestamp: now, nodeId: node.id, nodeLabel: node.label, nodeType: node.type,
+        status: 'node_complete', text: trimmed, durationMs: startTime ? now - startTime : undefined,
+      };
+    }
+    if (/\b(fail|error|halt|abort)\b/i.test(trimmed)) {
+      const startTime = nodeStartTimes.get(node.id);
+      return {
+        timestamp: now, nodeId: node.id, nodeLabel: node.label, nodeType: node.type,
+        status: 'node_error', text: trimmed, durationMs: startTime ? now - startTime : undefined,
+      };
+    }
+  }
+
+  // Workflow completion
+  if (/^\[workflow\]\s+execution\s+complete$/i.test(trimmed) || /^\[done\]$/i.test(trimmed)) {
+    return {
+      timestamp: now, nodeId: null, nodeLabel: null, nodeType: null,
+      status: 'done', text: 'Workflow completed',
+    };
+  }
+
+  // Generic info line
+  return {
+    timestamp: now, nodeId: null, nodeLabel: null, nodeType: null,
+    status: 'info', text: trimmed,
+  };
+}
+
+const NODE_EXEC_STATE_STYLES: Record<NodeExecState, string> = {
+  idle: '',
+  running: 'ring-2 ring-amber-400/70 animate-pulse',
+  completed: 'ring-2 ring-emerald-500/60',
+  failed: 'ring-2 ring-rose-500/60',
+};
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
 // ---------------------------------------------------------------------------
 // Config field editor
 // ---------------------------------------------------------------------------
@@ -334,11 +485,12 @@ interface CanvasNodeCardProps {
   node: GraphNode;
   selected: boolean;
   allNodes: GraphNode[];
+  execState: NodeExecState;
   onSelect: () => void;
   onRemove: () => void;
 }
 
-function CanvasNodeCard({ node, selected, allNodes, onSelect, onRemove }: CanvasNodeCardProps) {
+function CanvasNodeCard({ node, selected, allNodes, execState, onSelect, onRemove }: CanvasNodeCardProps) {
   const entry = PALETTE.find((p) => p.type === node.type);
   const Icon = entry?.Icon ?? Brain;
   const colorClass = NODE_COLORS[node.type] ?? 'theme-border theme-bg-primary';
@@ -346,6 +498,8 @@ function CanvasNodeCard({ node, selected, allNodes, onSelect, onRemove }: Canvas
   const connectedLabels = node.connectsTo
     .map((id) => allNodes.find((n) => n.id === id)?.label ?? id)
     .join(', ');
+
+  const execStyle = NODE_EXEC_STATE_STYLES[execState];
 
   return (
     <div
@@ -357,7 +511,7 @@ function CanvasNodeCard({ node, selected, allNodes, onSelect, onRemove }: Canvas
       className={[
         'group relative cursor-pointer rounded-lg border px-3 py-2.5 transition-all',
         colorClass,
-        selected ? 'ring-2 ring-sky-500/60' : 'hover:ring-1 hover:ring-white/20',
+        execState !== 'idle' ? execStyle : (selected ? 'ring-2 ring-sky-500/60' : 'hover:ring-1 hover:ring-white/20'),
       ].join(' ')}
     >
       <div className="flex items-start gap-2">
@@ -370,6 +524,21 @@ function CanvasNodeCard({ node, selected, allNodes, onSelect, onRemove }: Canvas
             >
               {node.type}
             </span>
+            {execState === 'running' && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-px text-[9px] font-medium text-amber-400">
+                <RefreshCw size={8} className="animate-spin" /> Running
+              </span>
+            )}
+            {execState === 'completed' && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-px text-[9px] font-medium text-emerald-400">
+                <Check size={8} /> Done
+              </span>
+            )}
+            {execState === 'failed' && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/30 bg-rose-500/10 px-1.5 py-px text-[9px] font-medium text-rose-400">
+                <AlertTriangle size={8} /> Failed
+              </span>
+            )}
           </div>
           {connectedLabels && (
             <p className="mt-0.5 text-[10px] theme-text-muted">
@@ -425,6 +594,8 @@ export function GraphBuilder() {
   const [compiling, setCompiling] = useState(false);
   const [running, setRunning] = useState(false);
   const [runOutput, setRunOutput] = useState<string[]>([]);
+  const [runEntries, setRunEntries] = useState<RunOutputEntry[]>([]);
+  const [nodeExecStates, setNodeExecStates] = useState<Map<string, NodeExecState>>(new Map());
   const [checkpoints, setCheckpoints] = useState<GraphCheckpoint[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [runtimeRuns, setRuntimeRuns] = useState<GraphRunRecord[]>([]);
@@ -449,7 +620,7 @@ export function GraphBuilder() {
     if (runOutputRef.current) {
       runOutputRef.current.scrollTop = runOutputRef.current.scrollHeight;
     }
-  }, [runOutput]);
+  }, [runOutput, runEntries]);
 
   // Load saved checkpoints on mount
   useEffect(() => {
@@ -583,8 +754,61 @@ export function GraphBuilder() {
   const handleRun = async () => {
     setRunning(true);
     setRunOutput(['[run started]']);
+    setRunEntries([{
+      timestamp: Date.now(),
+      nodeId: null,
+      nodeLabel: null,
+      nodeType: null,
+      status: 'info',
+      text: 'Workflow started',
+    }]);
+    // Reset node execution states
+    const initialStates = new Map<string, NodeExecState>();
+    for (const n of nodes) initialStates.set(n.id, 'idle');
+    setNodeExecStates(initialStates);
     setError(null);
     setRuntimeMessage(null);
+
+    // Track per-node start times for duration calculation
+    const nodeStartTimes = new Map<string, number>();
+
+    const updateNodeState = (nodeId: string, state: NodeExecState) => {
+      setNodeExecStates((prev) => {
+        const next = new Map(prev);
+        next.set(nodeId, state);
+        return next;
+      });
+    };
+
+    const processLine = (line: string) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      setRunOutput((prev) => [...prev, trimmed]);
+      const entry = parseStreamLine(trimmed, nodes, nodeStartTimes);
+      setRunEntries((prev) => [...prev, entry]);
+
+      // Update node execution states based on parsed entry
+      if (entry.nodeId) {
+        if (entry.status === 'node_start') {
+          updateNodeState(entry.nodeId, 'running');
+        } else if (entry.status === 'node_complete') {
+          updateNodeState(entry.nodeId, 'completed');
+        } else if (entry.status === 'node_error') {
+          updateNodeState(entry.nodeId, 'failed');
+        }
+      }
+      if (entry.status === 'done') {
+        // Mark any still-running nodes as completed
+        setNodeExecStates((prev) => {
+          const next = new Map(prev);
+          for (const [id, state] of next) {
+            if (state === 'running') next.set(id, 'completed');
+          }
+          return next;
+        });
+      }
+    };
+
     try {
       const base = buildBaseUrl();
       const res = await fetch(`${base}/api/agency/workflow/start`, {
@@ -606,7 +830,8 @@ export function GraphBuilder() {
       const reader = res.body?.getReader();
       if (!reader) {
         const text = await res.text();
-        setRunOutput((prev) => [...prev, text, '[done]']);
+        for (const line of text.split('\n')) processLine(line);
+        processLine('[done]');
         if (runtimeRunId) {
           void fetchRuntimeRuns({ silent: true });
         }
@@ -614,24 +839,45 @@ export function GraphBuilder() {
       }
       const decoder = new TextDecoder();
       let done = false;
+      let buffer = '';
       while (!done) {
         const chunk = await reader.read();
         done = chunk.done;
         if (chunk.value) {
-          setRunOutput((prev) => [...prev, decoder.decode(chunk.value)]);
+          buffer += decoder.decode(chunk.value, { stream: true });
+          const lines = buffer.split('\n');
+          // Keep the last partial line in the buffer
+          buffer = lines.pop() ?? '';
+          for (const line of lines) processLine(line);
         }
       }
-      setRunOutput((prev) => [...prev, '[done]']);
+      // Flush any remaining buffer
+      if (buffer.trim()) processLine(buffer);
+      processLine('[done]');
       if (runtimeRunId) {
         setRuntimeMessage(`Run ${runtimeRunId} completed and is available in Runtime Runs.`);
         void fetchRuntimeRuns({ silent: true });
       }
     } catch (err) {
-      setRunOutput((prev) => [
-        ...prev,
-        `[error] ${err instanceof Error ? err.message : 'Run failed'}`,
-      ]);
-      setError(err instanceof Error ? err.message : 'Run failed.');
+      const errMsg = err instanceof Error ? err.message : 'Run failed';
+      setRunOutput((prev) => [...prev, `[error] ${errMsg}`]);
+      setRunEntries((prev) => [...prev, {
+        timestamp: Date.now(),
+        nodeId: null,
+        nodeLabel: null,
+        nodeType: null,
+        status: 'info',
+        text: `Error: ${errMsg}`,
+      }]);
+      setError(errMsg);
+      // Mark running nodes as failed
+      setNodeExecStates((prev) => {
+        const next = new Map(prev);
+        for (const [id, state] of next) {
+          if (state === 'running') next.set(id, 'failed');
+        }
+        return next;
+      });
     } finally {
       setRunning(false);
     }
@@ -668,6 +914,8 @@ export function GraphBuilder() {
       setSelectedId(null);
       setCompiledIr(null);
       setRunOutput([]);
+      setRunEntries([]);
+      setNodeExecStates(new Map());
     } catch {
       setError('Failed to restore checkpoint (corrupted data).');
     }
@@ -909,22 +1157,30 @@ export function GraphBuilder() {
                     node={node}
                     selected={selectedId === node.id}
                     allNodes={nodes}
+                    execState={nodeExecStates.get(node.id) ?? 'idle'}
                     onSelect={() => setSelectedId(selectedId === node.id ? null : node.id)}
                     onRemove={() => removeNode(node.id)}
                   />
                 ))
               )}
 
-              {/* Run output (shown below canvas when non-empty) */}
-              {runOutput.length > 0 && (
+              {/* Structured run output (shown below canvas when non-empty) */}
+              {runEntries.length > 0 && (
                 <div
                   ref={runOutputRef}
-                  className="mt-2 max-h-32 overflow-y-auto rounded-lg border theme-border theme-bg-primary px-2 py-1.5"
+                  className="mt-2 max-h-64 overflow-y-auto rounded-lg border theme-border theme-bg-primary px-3 py-2"
                 >
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <p className="text-[9px] uppercase tracking-[0.35em] theme-text-muted">
-                      Run Output
-                    </p>
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <p className="text-[9px] uppercase tracking-[0.35em] theme-text-muted">
+                        Run Output
+                      </p>
+                      {running && (
+                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/30 bg-amber-400/10 px-1.5 py-0.5 text-[9px] text-amber-400">
+                          <RefreshCw size={7} className="animate-spin" /> Live
+                        </span>
+                      )}
+                    </div>
                     {lastStartedRuntimeRunId && (
                       <button
                         type="button"
@@ -938,13 +1194,63 @@ export function GraphBuilder() {
                       </button>
                     )}
                   </div>
-                  {runOutput.map((line, idx) => (
-                    // Output lines are append-only — index key is acceptable.
-                    // eslint-disable-next-line react/no-array-index-key
-                    <p key={idx} className="font-mono text-[9px] theme-text-secondary">
-                      {line}
-                    </p>
-                  ))}
+                  <div className="space-y-1">
+                    {runEntries.map((entry, idx) => {
+                      const Icon = entry.nodeType
+                        ? (PALETTE.find((p) => p.type === entry.nodeType)?.Icon ?? Brain)
+                        : null;
+                      const badgeColor = entry.nodeType ? NODE_BADGE_COLORS[entry.nodeType] : '';
+
+                      return (
+                        // eslint-disable-next-line react/no-array-index-key
+                        <div key={idx} className={[
+                          'flex items-start gap-2 rounded-md px-2 py-1.5 text-[10px]',
+                          entry.status === 'node_start' ? 'bg-amber-500/5 border-l-2 border-amber-400/50' :
+                          entry.status === 'node_complete' ? 'bg-emerald-500/5 border-l-2 border-emerald-500/50' :
+                          entry.status === 'node_error' ? 'bg-rose-500/5 border-l-2 border-rose-500/50' :
+                          entry.status === 'done' ? 'bg-sky-500/5 border-l-2 border-sky-500/50' :
+                          'border-l-2 border-transparent',
+                        ].join(' ')}>
+                          {/* Icon */}
+                          <div className="mt-0.5 shrink-0 w-4">
+                            {entry.status === 'node_start' && Icon && <Icon size={11} className={badgeColor} />}
+                            {entry.status === 'node_complete' && <Check size={11} className="text-emerald-400" />}
+                            {entry.status === 'node_error' && <AlertTriangle size={11} className="text-rose-400" />}
+                            {entry.status === 'done' && <Check size={11} className="text-sky-400" />}
+                            {entry.status === 'info' && <Clock size={11} className="theme-text-muted" />}
+                          </div>
+                          {/* Content */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {entry.nodeLabel && (
+                                <span className={`font-semibold ${
+                                  entry.status === 'node_start' ? 'text-amber-400' :
+                                  entry.status === 'node_complete' ? 'text-emerald-400' :
+                                  entry.status === 'node_error' ? 'text-rose-400' :
+                                  'theme-text-primary'
+                                }`}>
+                                  {entry.nodeLabel}
+                                </span>
+                              )}
+                              {entry.nodeType && (
+                                <span className={`rounded-full border border-current/20 bg-current/10 px-1 py-px text-[8px] uppercase tracking-wide ${badgeColor}`}>
+                                  {entry.nodeType}
+                                </span>
+                              )}
+                              {entry.durationMs != null && (
+                                <span className="text-[9px] theme-text-muted">
+                                  {formatDuration(entry.durationMs)}
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-0.5 font-mono text-[9px] theme-text-secondary break-words">
+                              {entry.text}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

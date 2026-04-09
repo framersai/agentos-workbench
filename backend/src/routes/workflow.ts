@@ -293,7 +293,20 @@ export default async function workflowRoutes(fastify: FastifyInstance): Promise<
         });
         write(`[node:${node.type}] ${node.label} — executing`);
 
-        await new Promise<void>((resolve) => setTimeout(resolve, 50));
+        // Simulate realistic per-node-type execution times
+        const delayByType: Record<string, number> = {
+          gmi: 1800,
+          tool: 1200,
+          human: 2200,
+          voice: 1600,
+          router: 600,
+          guardrail: 900,
+          subgraph: 2000,
+        };
+        const baseDelay = delayByType[node.type] ?? 1000;
+        // Add ±20% jitter so nodes don't all take the same time
+        const jitter = baseDelay * 0.2 * (Math.random() * 2 - 1);
+        await new Promise<void>((resolve) => setTimeout(resolve, Math.round(baseDelay + jitter)));
 
         taskSnapshots[node.id] = {
           ...taskSnapshots[node.id],

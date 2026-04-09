@@ -69,6 +69,36 @@ function generateId(): string {
   return `forge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function isCoinGeckoPriceTool(description: string): boolean {
+  const normalized = description.toLowerCase();
+  return normalized.includes('coingecko') && normalized.includes('price');
+}
+
+function inferDefaultCoinId(description: string): string {
+  const normalized = description.toLowerCase();
+  if (normalized.includes('btc') || normalized.includes('bitcoin')) return 'bitcoin';
+  if (normalized.includes('eth') || normalized.includes('ethereum')) return 'ethereum';
+  if (normalized.includes('sol') || normalized.includes('solana')) return 'solana';
+  return 'bitcoin';
+}
+
+function inferForgedToolName(description: string): string {
+  if (isCoinGeckoPriceTool(description)) {
+    const coinId = inferDefaultCoinId(description);
+    if (coinId === 'bitcoin') return 'btc_price_retriever';
+    if (coinId === 'ethereum') return 'eth_price_retriever';
+    if (coinId === 'solana') return 'sol_price_retriever';
+    return `${coinId}_price_retriever`;
+  }
+
+  return description
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40) || 'forged_tool';
+}
+
 /**
  * Stub implementation generator.
  *
@@ -80,6 +110,54 @@ function generateId(): string {
  * @returns A JS function body string that can be evaluated via `new Function()`.
  */
 function generateImplementation(description: string, parametersSchema: string): string {
+  if (isCoinGeckoPriceTool(description)) {
+    const defaultCoinId = inferDefaultCoinId(description);
+    return `
+// Generated demo CoinGecko price tool for: ${description}
+async function run(params) {
+  const symbolToId = {
+    btc: 'bitcoin',
+    bitcoin: 'bitcoin',
+    eth: 'ethereum',
+    ethereum: 'ethereum',
+    sol: 'solana',
+    solana: 'solana',
+  };
+
+  const requested = typeof params?.coin === 'string'
+    ? params.coin
+    : typeof params?.symbol === 'string'
+      ? params.symbol
+      : typeof params?.asset === 'string'
+        ? params.asset
+        : '${defaultCoinId}';
+
+  const normalized = String(requested).trim().toLowerCase();
+  const coinId = symbolToId[normalized] || normalized || '${defaultCoinId}';
+  const vsCurrency = typeof params?.vs_currency === 'string' && params.vs_currency.trim()
+    ? params.vs_currency.trim().toLowerCase()
+    : 'usd';
+  const demoPrices = {
+    bitcoin: { usd: 67245.13, eur: 61890.42 },
+    ethereum: { usd: 3248.77, eur: 2989.14 },
+    solana: { usd: 142.58, eur: 131.92 },
+  };
+  const fallbackPrice = { usd: 100, eur: 92 };
+  const coinPrices = demoPrices[coinId] || fallbackPrice;
+  const price = coinPrices[vsCurrency] || coinPrices.usd || 100;
+
+  return {
+    ok: true,
+    coinId,
+    vsCurrency,
+    price,
+    source: 'demo-coingecko',
+    asOf: '2026-04-08T00:00:00Z',
+  };
+}
+`.trim();
+  }
+
   return `
 // Generated stub for: ${description}
 // Parameters schema: ${parametersSchema || '(none)'}
@@ -110,7 +188,7 @@ function judgeImplementation(description: string): JudgeVerdict & { toolId: stri
   return {
     requestId: '', // filled by caller
     toolId,
-    toolName: description.slice(0, 40).trim(),
+    toolName: inferForgedToolName(description),
     status: approved ? 'approved' : 'rejected',
     scores: { correctness, safety, efficiency },
     reasoning: approved
