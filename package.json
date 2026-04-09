@@ -4,7 +4,8 @@
   "private": true,
   "description": "Developer cockpit for AgentOS sessions: inspect personas, debug tool calls, and replay streaming transcripts.",
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently -n front,back -c cyan,green \"vite\" \"pnpm --filter backend dev\"",
+    "dev:front": "vite",
     "build": "vite build",
     "build:report": "pnpm build && pnpm bundle:report",
     "build:check": "pnpm build && pnpm bundle:report && pnpm bundle:check && pnpm bundle:compare",
@@ -73,6 +74,7 @@
     "@typescript-eslint/parser": "^7.15.0",
     "@vitejs/plugin-react-swc": "^3.7.0",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^9.2.1",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react": "^7.35.0",
