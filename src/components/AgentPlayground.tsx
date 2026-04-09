@@ -231,6 +231,41 @@ function Collapsible({
   );
 }
 
+/** Turn markdown bold, links, and bare URLs into styled React elements. */
+function renderMarkdown(text: string): React.ReactNode[] {
+  // Match **bold**, [label](url), or bare URLs — order matters (bold first to avoid nested issues)
+  const pattern = /\*\*(.+?)\*\*|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s)<>]+)/g;
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    if (match[1] != null) {
+      // **bold**
+      parts.push(<strong key={key++}>{match[1]}</strong>);
+    } else {
+      // link
+      const url = match[3] ?? match[4];
+      const label = match[2] ?? url;
+      parts.push(
+        <a
+          key={key++}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[color:var(--color-accent-primary)] underline underline-offset-2 hover:brightness-125"
+        >
+          {label}
+        </a>,
+      );
+    }
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts;
+}
+
 /** Single chat message bubble. */
 function MessageBubble({ msg }: { msg: ChatMessage }) {
   const isUser = msg.role === 'user';
@@ -258,7 +293,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
           </div>
         )}
         <p className="whitespace-pre-wrap leading-relaxed">
-          {msg.text}
+          {renderMarkdown(msg.text)}
           {msg.streaming && (
             <span className="ml-1 inline-flex gap-0.5">
               <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
