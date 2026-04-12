@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import { resolveWorkbenchApiBaseUrl } from '@/lib/agentosClient';
 import { HelpTooltip } from '@/components/ui/HelpTooltip';
-import { useSessionStore } from '@/state/sessionStore';
+import { useSessionStore, type SessionEvent } from '@/state/sessionStore';
 import { AgentOSChunkType } from '@/types/agentos';
 
 // ---------------------------------------------------------------------------
@@ -593,7 +593,7 @@ export function AgentPlayground() {
                 id: crypto.randomUUID(),
                 timestamp: Date.now(),
                 type: AgentOSChunkType.TEXT_DELTA,
-                payload: { type: AgentOSChunkType.TEXT_DELTA, textDelta: delta, streamId: assistantId, personaId: 'agent' } as any,
+                payload: { type: AgentOSChunkType.TEXT_DELTA, textDelta: delta, streamId: assistantId, personaId: 'agent' } as SessionEvent['payload'],
               });
               if (settings.traceEvents) {
                 traceEvents.push({
@@ -621,7 +621,7 @@ export function AgentPlayground() {
                 payload: {
                   type: AgentOSChunkType.TOOL_CALL_REQUEST,
                   toolCalls: [{ id: crypto.randomUUID(), name: entry.name, arguments: entry.args }],
-                } as any,
+                } as SessionEvent['payload'],
               });
               if (entry.result !== undefined) {
                 appendEvent(sid, {
@@ -632,7 +632,7 @@ export function AgentPlayground() {
                     type: AgentOSChunkType.TOOL_RESULT_EMISSION,
                     toolName: entry.name,
                     result: entry.result,
-                  } as any,
+                  } as SessionEvent['payload'],
                 });
               }
               if (settings.traceEvents) {
@@ -674,7 +674,7 @@ export function AgentPlayground() {
                   isFinal: true,
                   usage: usage ?? null,
                   latencyMs: latencyMs ?? null,
-                } as any,
+                } as SessionEvent['payload'],
               });
               upsertSession({ id: sid, status: 'idle' });
             } else if (chunkType === 'error') {
@@ -690,7 +690,7 @@ export function AgentPlayground() {
                 id: crypto.randomUUID(),
                 timestamp: Date.now(),
                 type: AgentOSChunkType.ERROR,
-                payload: { type: AgentOSChunkType.ERROR, message: errMsg } as any,
+                payload: { type: AgentOSChunkType.ERROR, message: errMsg } as SessionEvent['payload'],
               });
               upsertSession({ id: sid, status: 'error' });
             }
