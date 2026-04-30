@@ -11,7 +11,7 @@
 **Visual debugging and orchestration dashboard for [AgentOS](https://agentos.sh) agents.**
 
 [![npm](https://img.shields.io/npm/v/@framers/agentos?logo=npm&color=cb3837)](https://www.npmjs.com/package/@framers/agentos)
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue?logo=apache&logoColor=white)](https://github.com/framersai/agentos/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/License-MIT-green?logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4+-3178c6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
 [Website](https://agentos.sh) · [Docs](https://docs.agentos.sh) · [GitHub](https://github.com/framersai/agentos) · [Discord](https://discord.gg/usEkfCeQxs) · [npm](https://www.npmjs.com/package/@framers/agentos)
