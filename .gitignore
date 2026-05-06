@@ -4,6 +4,13 @@
 node_modules/
 .env
 
+# macOS metadata
+.DS_Store
+**/.DS_Store
+
+# Build artifacts
+tsconfig.tsbuildinfo
+
 # E2E test artifacts
 test-screenshots/
 playwright-report/
@@ -16,5 +23,10 @@ output/bundle-baseline-commit-message.txt
 output/bundle-baseline-branch-name.txt
 output/bundle-baseline-pr-body.md
 output/bundle-baseline-apply.sh
+output/*.png
 *-lock.yaml
 dist/
+
+# Screenshot outputs (e2e suites write to test-screenshots/ above)
+screenshots/
+screenshots-e2e/
