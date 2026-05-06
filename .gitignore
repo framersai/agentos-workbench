@@ -30,3 +30,20 @@ dist/
 # Screenshot outputs (e2e suites write to test-screenshots/ above)
 screenshots/
 screenshots-e2e/
+
+# Internal planning content — never publish (see CLAUDE.md)
+.superpowers/
+docs/superpowers/
+docs/specs/
+docs/plans/
+docs/internal/
+docs/audits/
+docs/STEP_*.md
+docs/PHASE_*.md
+docs/STAGE_*.md
+docs/SESSION_*.md
+docs/HANDOFF*.md
+docs/FINDINGS*.md
+docs/*-v[0-9]*-plan*.md
+docs/*-v[0-9]*-design*.md
+docs/*-plan-phase*.md
