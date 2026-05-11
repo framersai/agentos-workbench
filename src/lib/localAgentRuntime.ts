@@ -22,9 +22,9 @@ import type {
   ToolPermissionManagerConfig
 } from "@framers/agentos";
 import type { ExtensionManifest } from "@framers/agentos/extensions/manifest";
-import type { IPersonaDefinition } from "@framers/agentos/cognitive_substrate/personas/IPersonaDefinition";
-import type { IPersonaLoader, PersonaLoaderConfig } from "@framers/agentos/cognitive_substrate/personas/IPersonaLoader";
-import { BUILT_IN_PERSONAS } from "@framers/agentos/cognitive_substrate/personas/definitions";
+import type { IPersonaDefinition } from "@framers/agentos/cognition/substrate/personas/IPersonaDefinition";
+import type { IPersonaLoader, PersonaLoaderConfig } from "@framers/agentos/cognition/substrate/personas/IPersonaLoader";
+import { BUILT_IN_PERSONAS } from "@framers/agentos/cognition/substrate/personas/definitions";
 import type { IAuthService, ISubscriptionService, ISubscriptionTier } from "@framers/agentos/services/user_auth/types";
 import { PrismaClient } from "@prisma/client";
 import { createDatabase, type StorageAdapter } from "@framers/sql-storage-adapter";
