@@ -1,15 +1,36 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { access, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const targetPath = path.resolve(
-  process.cwd(),
-  'node_modules/@framers/agentos/dist/cognitive_substrate/GMI.js'
-);
+// agentos restructured the layout in 0.9.x — `cognitive_substrate/`
+// became `cognition/substrate/`. Try the new path first, fall back to
+// the legacy path. If neither exists the postinstall logs and skips
+// instead of failing the install.
+const CANDIDATE_PATHS = [
+  path.resolve(process.cwd(), 'node_modules/@framers/agentos/dist/cognition/substrate/GMI.js'),
+  path.resolve(process.cwd(), 'node_modules/@framers/agentos/dist/cognitive_substrate/GMI.js'),
+];
+
+async function findTarget() {
+  for (const candidate of CANDIDATE_PATHS) {
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      // try next
+    }
+  }
+  return null;
+}
 
 const before = "const providerIdForModel = this.activePersona.defaultProviderId || this.config.defaultLlmProviderId;";
 const after = "const providerIdForModel = preferredProviderIdFromInput || this.activePersona.defaultProviderId || this.config.defaultLlmProviderId;";
 
 async function main() {
+  const targetPath = await findTarget();
+  if (!targetPath) {
+    console.log('AgentOS GMI.js not found at expected paths — skipping provider-routing patch.');
+    return;
+  }
   const source = await readFile(targetPath, 'utf8');
 
   if (
