@@ -632,7 +632,7 @@ export function AgentPlayground() {
                     type: AgentOSChunkType.TOOL_RESULT_EMISSION,
                     toolName: entry.name,
                     result: entry.result,
-                  } as SessionEvent['payload'],
+                  } as unknown as SessionEvent['payload'],
                 });
               }
               if (settings.traceEvents) {
@@ -674,7 +674,7 @@ export function AgentPlayground() {
                   isFinal: true,
                   usage: usage ?? null,
                   latencyMs: latencyMs ?? null,
-                } as SessionEvent['payload'],
+                } as unknown as SessionEvent['payload'],
               });
               upsertSession({ id: sid, status: 'idle' });
             } else if (chunkType === 'error') {
