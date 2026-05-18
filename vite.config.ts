@@ -116,6 +116,13 @@ export default defineConfig({
         __dirname,
         "../../packages/sql-storage-adapter/src/adapters/indexedDbAdapter.ts"
       ),
+      // Vite's exports-field resolver doesn't pick up the JSON subpath export
+      // (`./config/extension-secrets.json`) reliably when the package lives in
+      // pnpm's nested store. Alias it directly to the on-disk file.
+      "@framers/agentos/config/extension-secrets.json": path.resolve(
+        __dirname,
+        "node_modules/@framers/agentos/dist/config/extension-secrets.json"
+      ),
       // Use workspace source for browser-safe build and avoid package exports resolution
       // "@framers/sql-storage-adapter": path.resolve(__dirname, "../../packages/sql-storage-adapter/src/index.ts")
     }

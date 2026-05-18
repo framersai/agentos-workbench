@@ -1,6 +1,6 @@
 import extensionSecretDefinitions from '@framers/agentos/config/extension-secrets.json';
 
-export interface SecretDefinition {
+export interface ExtensionSecretDefinition {
   id: string;
   label: string;
   description?: string;
@@ -10,5 +10,9 @@ export interface SecretDefinition {
   providers?: string[];
 }
 
-export const secretDefinitions = extensionSecretDefinitions as SecretDefinition[];
+const EXTENSION_SECRET_DEFINITIONS = extensionSecretDefinitions as ExtensionSecretDefinition[];
+
+export type SecretDefinition = ExtensionSecretDefinition;
+
+export const secretDefinitions: SecretDefinition[] = EXTENSION_SECRET_DEFINITIONS;
 export const secretDefinitionMap = new Map(secretDefinitions.map((def) => [def.id, def]));
